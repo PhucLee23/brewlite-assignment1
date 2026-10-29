@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Header from "@/components/Header";
 import Providers from "./providers";
 import "./globals.css";
 
@@ -22,6 +23,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       </head>
       <body className="font-sans antialiased">
         <Providers>
+          <Header />
           <main className="mx-auto w-full max-w-5xl px-4 pb-16 pt-6">{children}</main>
         </Providers>
       </body>
