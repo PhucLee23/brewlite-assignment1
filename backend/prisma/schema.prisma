@@ -7,3 +7,175 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
+enum Role {
+  CUSTOMER
+  STAFF
+}
+
+enum Size {
+  S
+  M
+  L
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  PREPARING
+  READY
+  COMPLETED
+  PAYMENT_FAILED
+  CANCELLED
+}
+
+// Cổng thanh toán bên thứ ba (môi trường sandbox)
+enum PaymentProvider {
+  MOMO
+  VNPAY
+}
+
+enum PaymentStatus {
+  PROCESSING
+  SUCCESS
+  FAILED
+}
+
+model User {
+  id            Int      @id @default(autoincrement())
+  email         String   @unique
+  passwordHash  String
+  fullName      String
+  role          Role     @default(CUSTOMER)
+  loyaltyPoints Int      @default(0)
+  createdAt     DateTime @default(now())
+  orders        Order[]
+}
+
+model Product {
+  id          Int                 @id @default(autoincrement())
+  name        String
+  description String              @default("")
+  price       Int // giá size S, đơn vị VNĐ
+  imageUrl    String
+  createdAt   DateTime            @default(now())
+  orderItems  OrderItem[]
+  // Công thức: số ly còn bán được tính từ tồn kho nguyên liệu, không lưu riêng
+  recipe      ProductIngredient[]
+}
+
+model Topping {
+  id     Int                 @id @default(autoincrement())
+  name   String              @unique
+  price  Int
+  recipe ToppingIngredient[]
+}
+
+model Ingredient {
+  id             Int                 @id @default(autoincrement())
+  name           String              @unique
+  unit           String // g, ml, cái
+  stock          Int // số lượng đang có, tính theo unit
+  // Optimistic locking: tăng mỗi lần cập nhật tồn kho
+  version        Int                 @default(0)
+  // false với thứ dùng 1 cái mỗi ly bất kể size (ly nhựa)
+  scalesWithSize Boolean             @default(true)
+  products       ProductIngredient[]
+  toppings       ToppingIngredient[]
+  orderUsages    OrderIngredient[]
+}
+
+// Lượng nguyên liệu cho 1 ly size S; size M, L nhân thêm theo SIZE_RECIPE_PERCENT
+model ProductIngredient {
+  productId    Int
+  product      Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  ingredientId Int
+  ingredient   Ingredient @relation(fields: [ingredientId], references: [id])
+  amount       Int
+
+  @@id([productId, ingredientId])
+}
+
+// Lượng nguyên liệu cho 1 phần topping, không đổi theo size
+model ToppingIngredient {
+  toppingId    Int
+  topping      Topping    @relation(fields: [toppingId], references: [id], onDelete: Cascade)
+  ingredientId Int
+  ingredient   Ingredient @relation(fields: [ingredientId], references: [id])
+  amount       Int
+
+  @@id([toppingId, ingredientId])
+}
+
+model Promotion {
+  code       String    @id
+  percentOff Int // 1..100
+  minTotal   Int       @default(0)
+  active     Boolean   @default(true)
+  expiresAt  DateTime?
+}
+
+model Order {
+  id             Int               @id @default(autoincrement())
+  userId         Int
+  user           User              @relation(fields: [userId], references: [id])
+  status         OrderStatus       @default(PENDING)
+  subtotal       Int
+  discount       Int               @default(0)
+  total          Int
+  promotionCode  String?
+  idempotencyKey String?           @unique
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  items          OrderItem[]
+  payments       Payment[]
+  // Nguyên liệu đã trừ khi đặt đơn; hủy đơn trả lại đúng chừng này
+  ingredients    OrderIngredient[]
+
+  @@index([userId, createdAt])
+}
+
+model OrderItem {
+  id          Int      @id @default(autoincrement())
+  orderId     Int
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId   Int
+  product     Product  @relation(fields: [productId], references: [id])
+  productName String
+  size        Size
+  toppings    String[]
+  qty         Int
+  unitPrice   Int
+  lineTotal   Int
+}
+
+model OrderIngredient {
+  orderId      Int
+  order        Order      @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  ingredientId Int
+  ingredient   Ingredient @relation(fields: [ingredientId], references: [id])
+  amount       Int
+
+  @@id([orderId, ingredientId])
+}
+
+model Payment {
+  id             Int              @id @default(autoincrement())
+  orderId        Int
+  order          Order            @relation(fields: [orderId], references: [id])
+  idempotencyKey String           @unique
+  amount         Int
+  // Cổng khách chọn khi mở phiên thanh toán
+  provider       PaymentProvider?
+  status         PaymentStatus
+  // Mã đơn gửi sang cổng (không trùng giữa các máy dùng chung tài khoản sandbox) và link trang thanh toán của cổng
+  gatewayOrderId String?          @unique
+  payUrl         String?
+  // Bằng chứng giao dịch do cổng xác nhận: mã giao dịch, ngân hàng hoặc loại thanh toán, dữ liệu gốc có chữ ký
+  gatewayRef     String?
+  bankCode       String?
+  payType        String?
+  gatewayResult  Json?
+  confirmedAt    DateTime?
+  createdAt      DateTime         @default(now())
+}
