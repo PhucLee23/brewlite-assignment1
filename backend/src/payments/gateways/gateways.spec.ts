@@ -1,5 +1,47 @@
 import { GatewayHttp } from './gateway';
+import { momoCallbackSignature, MomoGateway } from './momo';
 import { VnpayGateway, vnpaySign, vnpaySignedQuery, vnpayTime } from './vnpay';
+
+describe('cổng MoMo', () => {
+  // Kết quả thật sandbox MoMo gửi về sau khi trả bằng thẻ ATM test (ký bằng khóa test công khai của MoMo)
+  const realCallback = {
+    partnerCode: 'MOMO',
+    orderId: 'BLTHU1793090710651',
+    requestId: 'BLTHU1793090710651',
+    amount: '45000',
+    orderInfo: 'Thanh toán đơn #12 BrewLite',
+    orderType: 'momo_wallet',
+    transId: '4877578324',
+    resultCode: '0',
+    message: 'Successful.',
+    payType: 'napas',
+    responseTime: '1793090757791',
+    extraData: '',
+    signature: '73764241a3f9a7d602c303c919e43ed9f1da120ed23047a9b01680706e67fbee',
+  };
+  const momo = new MomoGateway(new GatewayHttp());
+
+  it('nhận kết quả MoMo có chữ ký đúng', () => {
+    expect(momo.parseCallback(realCallback)).toMatchObject({
+      gatewayOrderId: 'BLTHU1793090710651',
+      status: 'SUCCESS',
+      amount: 45000,
+      transactionNo: '4877578324',
+      payType: 'napas',
+    });
+  });
+
+  it('từ chối kết quả bị sửa số tiền hoặc kết quả', () => {
+    expect(momo.parseCallback({ ...realCallback, amount: '1000' })).toBeNull();
+    expect(momo.parseCallback({ ...realCallback, resultCode: '1006' })).toBeNull();
+    expect(momo.parseCallback({ ...realCallback, signature: undefined })).toBeNull();
+  });
+
+  it('khách bấm hủy trên trang MoMo là thất bại', () => {
+    const denied = { ...realCallback, resultCode: '1006', message: 'Transaction denied by user.' };
+    expect(momo.parseCallback({ ...denied, signature: momoCallbackSignature(denied) })?.status).toBe('FAILED');
+  });
+});
 
 describe('cổng VNPay', () => {
   beforeAll(() => {
