@@ -1,5 +1,5 @@
 import { Promotion } from '@prisma/client';
-import { evaluatePromotion } from './pricing';
+import { evaluatePromotion, unitPrice } from './pricing';
 
 const promo = (over: Partial<Promotion> = {}): Promotion => ({
   code: 'BREW10',
@@ -11,6 +11,12 @@ const promo = (over: Partial<Promotion> = {}): Promotion => ({
 });
 
 describe('pricing', () => {
+  it('tính giá theo size và topping', () => {
+    expect(unitPrice(45000, 'S', [])).toBe(45000);
+    expect(unitPrice(45000, 'M', [5000])).toBe(55000);
+    expect(unitPrice(45000, 'L', [5000, 7000])).toBe(67000);
+  });
+
   it('áp mã giảm giá hợp lệ', () => {
     expect(evaluatePromotion(promo(), 100000)).toEqual({ ok: true, discount: 10000 });
   });

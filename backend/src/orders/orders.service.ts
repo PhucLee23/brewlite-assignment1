@@ -1,19 +1,77 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { OrderStatus, Prisma } from '@prisma/client';
-import { PrismaService } from '../prisma/prisma.service';
+import { cupNeeds, RECIPE_SELECT } from '../ingredients/inventory';
+import { isUniqueViolation, PrismaService } from '../prisma/prisma.service';
 import { assertTransition } from './order-state-machine';
+import { CreateOrderDto } from './orders.dto';
+import { evaluatePromotion, unitPrice } from './pricing';
 
 export const ORDER_INCLUDE = {
   items: { orderBy: { id: 'asc' } },
 } satisfies Prisma.OrderInclude;
 
+/** Số lần thử lại khi optimistic lock bị tranh chấp. Mỗi lần thất bại nghĩa là một giao dịch khác đã thành công. */
+const STOCK_LOCK_RETRIES = 20;
 const TX_OPTIONS = { maxWait: 10_000, timeout: 20_000 };
+
+/** Đơn chưa thanh toán quá thời gian này sẽ tự hủy để trả nguyên liệu về kho. */
+export const UNPAID_ORDER_TTL_MS = 5 * 60_000;
 
 type Tx = Prisma.TransactionClient;
 
 @Injectable()
 export class OrdersService {
   constructor(private readonly prisma: PrismaService) {}
+
+  async create(userId: number, dto: CreateOrderDto, idempotencyKey?: string) {
+    // Khóa được gắn với user để hai người dùng không đụng key của nhau
+    const scopedKey = idempotencyKey ? `${userId}:${idempotencyKey}` : null;
+    if (scopedKey) {
+      const existing = await this.findByKey(scopedKey);
+      if (existing) return existing;
+    }
+
+    await this.releaseExpiredOrders();
+
+    const { lines, cups } = await this.priceItems(dto);
+    const subtotal = lines.reduce((sum, l) => sum + l.lineTotal, 0);
+    const { discount, promotionCode } = await this.applyPromotion(dto.promoCode, subtotal);
+
+    // Cộng dồn nguyên liệu cả đơn: hai món dùng chung một nguyên liệu thì trừ chung một lần
+    const needByIngredient = new Map<number, number>();
+    for (const cup of cups) {
+      for (const [id, amount] of cup.perCup) needByIngredient.set(id, (needByIngredient.get(id) ?? 0) + amount * cup.qty);
+    }
+    // Luôn khóa nguyên liệu theo id tăng dần để hai đơn dùng chung nguyên liệu không deadlock
+    const ingredientIds = [...needByIngredient.keys()].sort((a, b) => a - b);
+
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        for (const id of ingredientIds) await this.reserveIngredient(tx, id, needByIngredient.get(id)!, cups);
+        return tx.order.create({
+          data: {
+            userId,
+            status: 'PENDING',
+            subtotal,
+            discount,
+            total: subtotal - discount,
+            promotionCode,
+            idempotencyKey: scopedKey,
+            items: { create: lines },
+            ingredients: { create: ingredientIds.map((id) => ({ ingredientId: id, amount: needByIngredient.get(id)! })) },
+          },
+          include: ORDER_INCLUDE,
+        });
+      }, TX_OPTIONS);
+    } catch (err) {
+      // Hai request cùng key chạy song song: request về sau bị UNIQUE chặn, trả lại đơn đã tạo
+      if (scopedKey && isUniqueViolation(err)) {
+        const existing = await this.findByKey(scopedKey);
+        if (existing) return existing;
+      }
+      throw err;
+    }
+  }
 
   listMine(userId: number) {
     return this.prisma.order.findMany({
@@ -58,6 +116,114 @@ export class OrdersService {
       return tx.order.findUniqueOrThrow({ where: { id }, include: ORDER_INCLUDE });
     }, TX_OPTIONS);
   }
+
+  /** Tự hủy các đơn chưa thanh toán quá hạn để chúng không giữ hàng trong kho mãi. */
+  private async releaseExpiredOrders() {
+    const expired = await this.prisma.order.findMany({
+      where: {
+        status: { in: ['PENDING', 'PAYMENT_FAILED'] },
+        updatedAt: { lt: new Date(Date.now() - UNPAID_ORDER_TTL_MS) },
+      },
+      select: { id: true },
+      orderBy: { id: 'asc' },
+      take: 20,
+    });
+    for (const { id } of expired) {
+      // Đơn đang thanh toán hoặc vừa bị request khác hủy sẽ ném lỗi: bỏ qua, lần sau xử lý tiếp
+      await this.changeStatus(id, 'CANCELLED').catch(() => undefined);
+    }
+  }
+
+  private findByKey(idempotencyKey: string) {
+    return this.prisma.order.findUnique({ where: { idempotencyKey }, include: ORDER_INCLUDE });
+  }
+
+  /** Giá luôn do server tính, không tin giá từ client. Kèm nguyên liệu cho 1 ly của từng dòng. */
+  private async priceItems(dto: CreateOrderDto) {
+    const productIds = [...new Set(dto.items.map((i) => i.productId))];
+    const toppingIds = [...new Set(dto.items.flatMap((i) => i.toppingIds ?? []))];
+    const [products, toppings] = await Promise.all([
+      this.prisma.product.findMany({ where: { id: { in: productIds } }, include: { recipe: RECIPE_SELECT } }),
+      this.prisma.topping.findMany({ where: { id: { in: toppingIds } }, include: { recipe: RECIPE_SELECT } }),
+    ]);
+    const productById = new Map(products.map((p) => [p.id, p]));
+    const toppingById = new Map(toppings.map((t) => [t.id, t]));
+
+    const cups: CupUsage[] = [];
+    const lines = dto.items.map((item) => {
+      const product = productById.get(item.productId);
+      if (!product) throw new BadRequestException(`Sản phẩm #${item.productId} không tồn tại`);
+      if (product.recipe.length === 0) throw new ConflictException(`"${product.name}" tạm hết hàng`);
+      const chosen = [...new Set(item.toppingIds ?? [])].map((id) => {
+        const topping = toppingById.get(id);
+        if (!topping) throw new BadRequestException(`Topping #${id} không tồn tại`);
+        return topping;
+      });
+      const price = unitPrice(product.price, item.size, chosen.map((t) => t.price));
+      const extras = chosen.length ? ` thêm ${chosen.map((t) => t.name.toLowerCase()).join(', ')}` : '';
+      cups.push({
+        label: `"${product.name}" size ${item.size}${extras}`,
+        qty: item.qty,
+        perCup: cupNeeds(product.recipe, item.size, chosen.map((t) => t.recipe)),
+      });
+      return {
+        productId: product.id,
+        productName: product.name,
+        size: item.size,
+        toppings: chosen.map((t) => t.name),
+        qty: item.qty,
+        unitPrice: price,
+        lineTotal: price * item.qty,
+      };
+    });
+    return { lines, cups };
+  }
+
+  private async applyPromotion(code: string | undefined, subtotal: number) {
+    const trimmed = code?.trim().toUpperCase();
+    if (!trimmed) return { discount: 0, promotionCode: null };
+    const promo = await this.prisma.promotion.findUnique({ where: { code: trimmed } });
+    const result = evaluatePromotion(promo, subtotal);
+    if (!result.ok) throw new BadRequestException(result.reason);
+    return { discount: result.discount, promotionCode: trimmed };
+  }
+
+  /**
+   * Trừ nguyên liệu bằng optimistic locking: chỉ cập nhật khi `version` chưa đổi kể từ lúc đọc.
+   * Nếu một giao dịch khác vừa cập nhật, đọc lại và thử lại; không đủ nguyên liệu thì báo lỗi ngay.
+   */
+  private async reserveIngredient(tx: Tx, ingredientId: number, amount: number, cups: CupUsage[]) {
+    for (let attempt = 0; attempt < STOCK_LOCK_RETRIES; attempt++) {
+      const ingredient = await tx.ingredient.findUniqueOrThrow({
+        where: { id: ingredientId },
+        select: { name: true, stock: true, version: true },
+      });
+      if (ingredient.stock < amount) throw new ConflictException(shortageMessage(ingredientId, ingredient, cups));
+      const { count } = await tx.ingredient.updateMany({
+        where: { id: ingredientId, version: ingredient.version },
+        data: { stock: { decrement: amount }, version: { increment: 1 } },
+      });
+      if (count === 1) return;
+    }
+    throw new ConflictException('Có nhiều người đặt cùng lúc, vui lòng thử lại');
+  }
+}
+
+/** Một dòng của đơn: nguyên liệu cho 1 ly và số ly đặt. */
+interface CupUsage {
+  label: string;
+  qty: number;
+  perCup: Map<number, number>;
+}
+
+/** Chỉ một dòng dùng nguyên liệu bị thiếu thì báo số ly còn làm được; nhiều dòng dùng chung thì nêu tên nguyên liệu. */
+function shortageMessage(ingredientId: number, ingredient: { name: string; stock: number }, cups: CupUsage[]) {
+  const users = cups.filter((c) => c.perCup.has(ingredientId));
+  if (users.length === 1) {
+    const left = Math.floor(ingredient.stock / users[0].perCup.get(ingredientId)!);
+    return left === 0 ? `Đã hết nguyên liệu cho ${users[0].label}` : `${users[0].label} chỉ còn ${left} ly`;
+  }
+  return `Không đủ ${ingredient.name.toLowerCase()} cho các món trong đơn, vui lòng giảm số lượng`;
 }
 
 /**
