@@ -21,6 +21,13 @@ export class PaymentsController {
     return this.payments.pay(user.id, dto, parseIdempotencyKey(key, true), ipv4(ip));
   }
 
+  /** IPN của MoMo (server gọi server, xác thực bằng chữ ký trong body). MoMo cần HTTP 204. */
+  @Post('momo/ipn')
+  @HttpCode(204)
+  momoIpn(@Body() body: Record<string, unknown>) {
+    return this.payments.momoIpn(body);
+  }
+
   /** IPN của VNPay (server gọi server, xác thực bằng vnp_SecureHash). */
   @Get('vnpay/ipn')
   vnpayIpn(@Query() query: Record<string, unknown>) {
