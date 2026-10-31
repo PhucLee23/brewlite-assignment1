@@ -1,13 +1,23 @@
-import { Body, Controller, Get, HttpCode, Param, ParseIntPipe, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Headers, HttpCode, Param, ParseIntPipe, Patch, Post, UseGuards } from '@nestjs/common';
 import { AuthUser } from '../auth/auth.types';
 import { CurrentUser, JwtAuthGuard, Roles, RolesGuard } from '../auth/guards';
-import { UpdateOrderStatusDto } from './orders.dto';
+import { parseIdempotencyKey } from '../common/idempotency';
+import { CreateOrderDto, UpdateOrderStatusDto } from './orders.dto';
 import { OrdersService } from './orders.service';
 
 @Controller('orders')
 @UseGuards(JwtAuthGuard)
 export class OrdersController {
   constructor(private readonly orders: OrdersService) {}
+
+  @Post()
+  create(
+    @CurrentUser() user: AuthUser,
+    @Body() dto: CreateOrderDto,
+    @Headers('idempotency-key') key?: string,
+  ) {
+    return this.orders.create(user.id, dto, parseIdempotencyKey(key, false));
+  }
 
   @Get('me')
   listMine(@CurrentUser() user: AuthUser) {
