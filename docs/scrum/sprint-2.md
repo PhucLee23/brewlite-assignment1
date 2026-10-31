@@ -16,17 +16,17 @@ TV2 (PO) chủ trì, cả nhóm chốt Sprint Goal và chia hạng mục theo b�
 
 | Mã | Hạng mục | TV | SP | Task | File chính | Nhánh | Trạng thái |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 2.1 | Đăng ký/đăng nhập bcrypt + JWT, JwtAuthGuard, RolesGuard (STAFF) | TV1 | 5 | 7 | `backend/src/auth/` | `feat/7-auth-jwt` | Chưa làm |
-| 2.2 | Dockerfile backend, compose có backend (tự migrate + seed) | TV1 | 3 | 9 | `backend/Dockerfile`, `docker-compose.yml` | `feat/9-docker-backend` | Chưa làm |
-| 2.3 | Mã khuyến mãi: GET /promotions/:code, hàm áp mã vào tổng tiền | TV1 | 3 | 10 | `backend/src/promotions/`, `orders/pricing.ts` | `feat/10-ma-khuyen-mai` | Chưa làm |
-| 2.4 | AuthForm, trang Đăng nhập/Đăng ký, store auth, useRequireAuth | TV5 | 3 | 7 | `frontend/src/components/AuthForm.tsx`, `store/auth.ts`, `lib/hooks.ts` | `feat/7-dang-nhap-ui` | Chưa làm |
-| 2.5 | Trang Giỏ hàng | TV6 | 5 | 5 | `frontend/src/app/cart/page.tsx` | `feat/5-trang-gio-hang` | Chưa làm |
-| 2.6 | Trang Checkout: nhập mã giảm giá, đặt đơn kèm Idempotency-Key | TV6 | 3 | 6 | `frontend/src/app/checkout/page.tsx`, `lib/orderKey.ts` | `feat/6-trang-checkout` | Chưa làm |
-| 2.7 | POST /orders: pricing.ts + unit test, trừ nguyên liệu bằng transaction + optimistic locking, idempotency, tự hủy đơn quá 5 phút | TV4 | 8 | 6, 10 | `backend/src/orders/orders.service.ts`, `pricing.ts`, `common/idempotency.ts` | `feat/6-10-tao-don` | Chưa làm |
-| 2.8 | Xem đơn của mình, xem chi tiết, hủy đơn (trả nguyên liệu, FOR UPDATE), đổi trạng thái qua transitionOrder | TV3 | 5 | 9, 10 | `backend/src/orders/orders.service.ts`, `orders.controller.ts` | `feat/9-xem-huy-don` | Chưa làm |
-| 2.9 | API Kho: GET /ingredients, nhập kho | TV3 | 3 | 2, 10 | `backend/src/ingredients/` | `feat/10-api-kho` | Chưa làm |
-| 2.10 | Test e2e API công khai: sản phẩm, đăng nhập, thời gian phản hồi < 500 ms | TV2 | 3 | 2, 7 | `backend/test/api-public.e2e-spec.ts` | `test/2-7-e2e-api-cong-khai` | Chưa làm |
-| 2.11 | Test case Sprint 2, nghiệm thu | TV2 | 3 | – | `docs/scrum/test-case.md` | `docs/test-case-sprint-2` | Chưa làm |
+| 2.1 | Đăng ký/đăng nhập bcrypt + JWT, JwtAuthGuard, RolesGuard (STAFF) | TV1 | 5 | 7 | `backend/src/auth/` | `feat/7-auth-jwt` | Đã merge |
+| 2.2 | Dockerfile backend, compose có backend (tự migrate + seed) | TV1 | 3 | 9 | `backend/Dockerfile`, `docker-compose.yml` | `feat/9-docker-backend` | Đã merge |
+| 2.3 | Mã khuyến mãi: GET /promotions/:code, hàm áp mã vào tổng tiền | TV1 | 3 | 10 | `backend/src/promotions/`, `orders/pricing.ts` | `feat/10-ma-khuyen-mai` | Đã merge |
+| 2.4 | AuthForm, trang Đăng nhập/Đăng ký, store auth, useRequireAuth | TV5 | 3 | 7 | `frontend/src/components/AuthForm.tsx`, `store/auth.ts`, `lib/hooks.ts` | `feat/7-dang-nhap-ui` | Đã merge |
+| 2.5 | Trang Giỏ hàng | TV6 | 5 | 5 | `frontend/src/app/cart/page.tsx` | `feat/5-trang-gio-hang` | Đã merge |
+| 2.6 | Trang Checkout: nhập mã giảm giá, đặt đơn kèm Idempotency-Key | TV6 | 3 | 6 | `frontend/src/app/checkout/page.tsx`, `lib/orderKey.ts` | `feat/6-trang-checkout` | Đã merge |
+| 2.7 | POST /orders: pricing.ts + unit test, trừ nguyên liệu bằng transaction + optimistic locking, idempotency, tự hủy đơn quá 5 phút | TV4 | 8 | 6, 10 | `backend/src/orders/orders.service.ts`, `pricing.ts`, `common/idempotency.ts` | `feat/6-10-tao-don` | Đã merge |
+| 2.8 | Xem đơn của mình, xem chi tiết, hủy đơn (trả nguyên liệu, FOR UPDATE), đổi trạng thái qua transitionOrder | TV3 | 5 | 9, 10 | `backend/src/orders/orders.service.ts`, `orders.controller.ts` | `feat/9-xem-huy-don` | Đã merge |
+| 2.9 | API Kho: GET /ingredients, nhập kho | TV3 | 3 | 2, 10 | `backend/src/ingredients/` | `feat/10-api-kho` | Đã merge |
+| 2.10 | Test e2e API công khai: sản phẩm, đăng nhập, thời gian phản hồi < 500 ms | TV2 | 3 | 2, 7 | `backend/test/api-public.e2e-spec.ts` | `test/2-7-e2e-api-cong-khai` | Đã merge |
+| 2.11 | Test case Sprint 2, nghiệm thu | TV2 | 3 | – | `docs/scrum/test-case.md` | `docs/test-case-sprint-2` | Đã merge |
 | | **Tổng** | | **44** | | | | |
 
 ## Daily Scrum
@@ -50,8 +50,23 @@ SP còn lại cuối ngày = tổng SP của Sprint trừ SP các hạng mục �
 
 ## Sprint Review
 
-TV1 ghi biên bản ở cuối Sprint.
+TV2 (PO) nghiệm thu theo tiêu chí chấp nhận trong [product-backlog.md](product-backlog.md). Tick ô nào đạt trong buổi Review.
+
+- [ ] Task 5: thêm, sửa số lượng, xóa món trong giỏ; tổng tiền và badge trên header tự cập nhật; tải lại trang vẫn còn giỏ.
+- [ ] Task 6: `POST /orders` validate dữ liệu, server tự tính giá và lưu đơn `PENDING`; gửi lại cùng `Idempotency-Key` không tạo đơn thứ hai.
+- [ ] Task 7: đăng ký, đăng nhập trả JWT; mật khẩu băm bcrypt; chưa đăng nhập mà vào Checkout thì chuyển sang trang Đăng nhập.
+- [ ] Task 10 (phần Sprint 2): mã giảm giá, trừ nguyên liệu bằng optimistic locking, hủy đơn trả nguyên liệu, tự hủy đơn quá 5 phút.
+
+Kết quả test trên `main` cuối Sprint: `npm test` (unit): 19/19 đạt; `npm run test:e2e`: 11/11 đạt.
+
+Phản hồi của PO: [...]
 
 ## Sprint Retrospective
 
-TV1 ghi biên bản ở cuối Sprint.
+Ngay sau Review, TV1 (SM) chủ trì.
+
+| Làm tốt | Cần cải thiện |
+| --- | --- |
+| [...] | [...] |
+
+**Hành động cho Sprint 3:** [...]
