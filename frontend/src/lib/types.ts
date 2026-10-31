@@ -44,3 +44,29 @@ export interface AuthResponse {
   accessToken: string;
   user: User;
 }
+
+export interface OrderItem {
+  id: number;
+  productId: number;
+  productName: string;
+  size: Size;
+  toppings: string[];
+  qty: number;
+  unitPrice: number;
+  lineTotal: number;
+}
+
+export interface Order {
+  id: number;
+  status: OrderStatus;
+  subtotal: number;
+  discount: number;
+  total: number;
+  promotionCode: string | null;
+  createdAt: string;
+  items: OrderItem[];
+}
+
+export type PromotionCheck =
+  | { valid: true; code: string; percentOff: number; discount: number }
+  | { valid: false; reason: string };
