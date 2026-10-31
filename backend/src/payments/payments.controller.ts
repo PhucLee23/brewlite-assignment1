@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Headers, HttpCode, Ip, Param, ParseIntPipe, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Headers, HttpCode, Ip, Param, ParseIntPipe, Post, Query, UseGuards } from '@nestjs/common';
 import { AuthUser } from '../auth/auth.types';
 import { CurrentUser, JwtAuthGuard } from '../auth/guards';
 import { parseIdempotencyKey } from '../common/idempotency';
@@ -19,6 +19,12 @@ export class PaymentsController {
     @Ip() ip: string,
   ) {
     return this.payments.pay(user.id, dto, parseIdempotencyKey(key, true), ipv4(ip));
+  }
+
+  /** IPN của VNPay (server gọi server, xác thực bằng vnp_SecureHash). */
+  @Get('vnpay/ipn')
+  vnpayIpn(@Query() query: Record<string, unknown>) {
+    return this.payments.vnpayIpn(query);
   }
 
   @Get(':id')

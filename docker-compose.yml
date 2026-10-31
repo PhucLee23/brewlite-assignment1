@@ -26,6 +26,10 @@ services:
       JWT_EXPIRES_IN: 1d
       # Mở bằng điện thoại: thêm địa chỉ IP của laptop, ví dụ http://localhost:3000,http://192.168.137.1:3000
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+      # Cổng thanh toán sandbox. VNPay: mã website và chuỗi bí mật lấy khi đăng ký merchant test,
+      # điền vào file .env cạnh docker-compose.yml (không commit).
+      VNPAY_TMN_CODE: ${VNPAY_TMN_CODE:-}
+      VNPAY_HASH_SECRET: ${VNPAY_HASH_SECRET:-}
     ports:
       - "4000:4000"
     depends_on:
