@@ -11,6 +11,7 @@ import { assertTransition } from '../orders/order-state-machine';
 import { ORDER_INCLUDE, transitionOrder } from '../orders/orders.service';
 import { isUniqueViolation, PrismaService } from '../prisma/prisma.service';
 import { GatewayError, GatewayHttp, GatewayResult, PaymentGateway } from './gateways/gateway';
+import { VnpayGateway } from './gateways/vnpay';
 import { expireStalePaymentSessions, isSessionExpired, sessionExpiresAt } from './payment-session';
 import { CreatePaymentDto } from './payments.dto';
 
@@ -30,8 +31,7 @@ export class PaymentsService {
     private readonly prisma: PrismaService,
     http: GatewayHttp,
   ) {
-    // Mỗi cổng (MoMo, VNPay) được thêm vào đây khi tích hợp, dùng http để gọi API của cổng
-    this.gateways = {};
+    this.gateways = { VNPAY: new VnpayGateway(http) };
   }
 
   /**
@@ -91,6 +91,17 @@ export class PaymentsService {
     if (result.status !== 'PENDING') await this.settle(payment.id, result);
     this.lastChecked.set(payment.id, Date.now());
     return this.findMine(userId, paymentId);
+  }
+
+  /** IPN của VNPay: luôn trả HTTP 200 kèm RspCode theo tài liệu VNPay (01, 04, 97 thì VNPay gửi lại). */
+  async vnpayIpn(query: Record<string, unknown>) {
+    const result = this.gateways.VNPAY!.parseCallback(query);
+    if (!result) return { RspCode: '97', Message: 'Invalid signature' };
+    const payment = await this.prisma.payment.findUnique({ where: { gatewayOrderId: result.gatewayOrderId } });
+    if (!payment) return { RspCode: '01', Message: 'Order not found' };
+    if (payment.amount !== result.amount) return { RspCode: '04', Message: 'invalid amount' };
+    const { duplicate } = await this.settle(payment.id, result);
+    return duplicate ? { RspCode: '02', Message: 'Order already confirmed' } : { RspCode: '00', Message: 'Confirm Success' };
   }
 
   /**
