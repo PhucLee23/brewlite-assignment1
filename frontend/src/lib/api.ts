@@ -1,3 +1,5 @@
+import { useAuth } from "@/store/auth";
+
 export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 
 export class ApiError extends Error {
@@ -34,6 +36,11 @@ export async function api<T>(path: string, { method = "GET", body, token }: Requ
 
   const data = await res.json().catch(() => null);
   if (!res.ok) {
+    if (res.status === 401 && token) {
+      // Token hết hạn/không hợp lệ: đăng xuất để các trang cần đăng nhập tự chuyển về /login
+      useAuth.getState().logout();
+      throw new ApiError("Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại.", 401);
+    }
     const raw = data?.message;
     const message = Array.isArray(raw) ? raw.join(", ") : raw || `Lỗi ${res.status}`;
     throw new ApiError(message, res.status);

@@ -31,3 +31,16 @@ export interface ProductDetail extends Product {
   sizes: { size: Size; surcharge: number; stock: number }[];
   toppings: Topping[];
 }
+
+export interface User {
+  id: number;
+  email: string;
+  fullName: string;
+  role: "CUSTOMER" | "STAFF";
+  loyaltyPoints: number;
+}
+
+export interface AuthResponse {
+  accessToken: string;
+  user: User;
+}
