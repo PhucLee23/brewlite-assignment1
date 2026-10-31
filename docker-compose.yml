@@ -37,5 +37,18 @@ services:
       timeout: 3s
       retries: 20
 
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # Trình duyệt gọi API qua cổng đã publish ra máy host.
+        # Mở bằng điện thoại: đặt NEXT_PUBLIC_API_URL=http://<IP laptop>:4000 rồi build lại frontend.
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:4000}
+    ports:
+      - "3000:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+
 volumes:
   db_data:
