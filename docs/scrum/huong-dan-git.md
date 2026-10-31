@@ -2,16 +2,6 @@
 
 Nhóm dùng một repository chung trên GitHub. Mỗi hạng mục trong Sprint Backlog được làm trên một nhánh riêng, mở Pull Request (PR), có người review chéo rồi mới merge vào `main`. Ai phụ trách PR nào, ai review, nằm trong [danh-sach-pr.md](danh-sach-pr.md).
 
-## Ba quy tắc
-
-1. **Làm theo thứ tự phụ thuộc.** Phần nào cần phần khác có trước (ví dụ giao diện cần API, API cần Prisma schema) thì chờ phần kia merge rồi mới mở PR. Các PR không đụng file của nhau thì làm song song.
-2. **Hiểu phần mình làm.** Mỗi người chạy thử và tự giải thích được code mình commit. Khi demo, giảng viên có thể hỏi bất kỳ ai về đúng file người đó đã commit.
-3. **Commit bằng tài khoản của mình.** Không sửa ngày commit, không commit giùm người khác.
-
-## Chuẩn bị (một lần)
-
-Nhóm trưởng tạo repository trên GitHub và mời các thành viên (*Settings → Collaborators*). Mỗi người mở email hoặc https://github.com/notifications bấm **Accept**. TV1 (Scrum Master) đẩy commit khởi tạo dự án lên `main`; từ đó mọi thay đổi đều đi qua Pull Request.
-
 **Mỗi thành viên:**
 ```bash
 git config --global user.name "Họ Tên Thật"
@@ -26,14 +16,14 @@ Email trong `git config` phải là email đã thêm vào tài khoản GitHub c�
 
 Ví dụ: làm hạng mục API danh sách sản phẩm.
 
-1. **Lấy code mới nhất và tạo nhánh:**
+1. **code và tạo nhánh:**
    ```bash
    git checkout main
    git pull
    git checkout -b feat/2-products-api
    ```
    Tên nhánh: `feat/<số task>-<mô tả>` cho tính năng, `fix/...` sửa lỗi, `docs/...` tài liệu, `test/...` kiểm thử, `chore/...` công cụ và cấu hình.
-2. **Code và chạy thử** theo tiêu chí chấp nhận trong [product-backlog.md](product-backlog.md). Phải build được và test qua mới commit.
+2. **chạy thử** theo tiêu chí chấp nhận trong [product-backlog.md](product-backlog.md). Phải build được và test qua mới commit.
 3. **Commit và push:**
    ```bash
    git add .
