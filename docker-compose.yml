@@ -27,9 +27,14 @@ services:
       # Mở bằng điện thoại: thêm địa chỉ IP của laptop, ví dụ http://localhost:3000,http://192.168.137.1:3000
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
       # Cổng thanh toán sandbox. VNPay: mã website và chuỗi bí mật lấy khi đăng ký merchant test,
-      # điền vào file .env cạnh docker-compose.yml (không commit).
+      # điền vào file .env cạnh docker-compose.yml (không commit). MoMo để trống thì dùng khóa test công khai.
       VNPAY_TMN_CODE: ${VNPAY_TMN_CODE:-}
       VNPAY_HASH_SECRET: ${VNPAY_HASH_SECRET:-}
+      MOMO_PARTNER_CODE: ${MOMO_PARTNER_CODE:-}
+      MOMO_ACCESS_KEY: ${MOMO_ACCESS_KEY:-}
+      MOMO_SECRET_KEY: ${MOMO_SECRET_KEY:-}
+      # Địa chỉ công khai của API để MoMo gọi IPN (khi có); ở máy cá nhân backend tự tra cứu cổng
+      PUBLIC_API_URL: ${PUBLIC_API_URL:-http://localhost:4000}
     ports:
       - "4000:4000"
     depends_on:
