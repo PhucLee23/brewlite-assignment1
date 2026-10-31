@@ -20,6 +20,11 @@ Route có 🔒 cần header `Authorization: Bearer <accessToken>`.
 | PATCH | `/orders/:id/status` 🔒 STAFF | Barista đổi trạng thái: chỉ `PREPARING`, `READY`, `COMPLETED`, `CANCELLED`. Hủy đơn đã `PAID` thì trả nguyên liệu, thu hồi điểm thưởng và giao dịch thành `REFUND_DUE` | 400, 403, 409 |
 | GET | `/ingredients` 🔒 STAFF | Trang Kho: tồn từng nguyên liệu và số ly còn bán được của từng món | 403 |
 | POST | `/ingredients/:id/restock` 🔒 STAFF | Nhập thêm hàng vào kho `{ "amount": 2000 }` | 400, 403, 404 |
+| POST | `/payments` 🔒 | Mở phiên thanh toán ở cổng **MoMo** hoặc **VNPay** (sandbox), trả về link sang trang thanh toán của cổng (header `Idempotency-Key` **bắt buộc**) | 400, 404, 409, 502 |
+| GET | `/payments/:id` 🔒 | Trạng thái phiên thanh toán của chính mình; phiên còn mở thì backend tự tra cứu cổng | 404 |
+| POST | `/payments/:id/return` 🔒 | Trang BrewLite gửi lên kết quả cổng gắn vào link khi chuyển khách về; backend kiểm tra chữ ký rồi tra cứu lại cổng | 400, 404 |
+| POST | `/payments/momo/ipn` | IPN của MoMo (server → server, ký HMAC-SHA256, không dùng JWT) → 204 | 400, 404 |
+| GET | `/payments/vnpay/ipn` | IPN của VNPay (server → server, ký HMAC-SHA512) → 200 kèm `RspCode` | |
 
 ## Ví dụ
 
@@ -63,6 +68,73 @@ Không đủ nguyên liệu thì trả `409`, không trừ gì:
 - Chỉ một dòng trong đơn dùng nguyên liệu bị thiếu: `"Cold brew" size M chỉ còn 4 ly`, hoặc `Đã hết nguyên liệu cho "Cà phê sữa đá" size M thêm trân châu`.
 - Nhiều dòng dùng chung nguyên liệu bị thiếu: `Không đủ sữa tươi cho các món trong đơn, vui lòng giảm số lượng`.
 
+### POST /payments
+
+```http
+Idempotency-Key: 0b7e9d4c-5f21-4e3a-8c6d-9a1b2c3d4e5f
+```
+
+```json
+{ "orderId": 1042, "provider": "VNPAY", "returnOrigin": "http://localhost:3000" }
+```
+
+→ `201`
+
+```json
+{
+  "replayed": false,
+  "payment": {
+    "id": 7, "orderId": 1042, "status": "PROCESSING", "provider": "VNPAY", "amount": 51300,
+    "gatewayOrderId": "BLMVQGKPK11F0B76C8", "gatewayRef": null, "confirmedAt": null, "createdAt": "…"
+  },
+  "order": { "id": 1042, "status": "PENDING" },
+  "expiresAt": "…",
+  "paymentUrl": "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html?vnp_Amount=5130000&…&vnp_SecureHash=…"
+}
+```
+
+- `provider`: `MOMO` hoặc `VNPAY`.
+  - **VNPay:** backend tự ký link (HMAC-SHA512 bằng `VNPAY_HASH_SECRET`).
+  - **MoMo:** backend gọi API `/v2/gateway/api/create` của MoMo (ký HMAC-SHA256) để lấy `payUrl`. MoMo từ chối hoặc không kết nối được thì trả 502, và khách bấm thanh toán lại được ngay.
+- `returnOrigin`: địa chỉ BrewLite khách đang mở. Cổng chuyển khách về `<returnOrigin>/payments/<id>`, nhưng chỉ khi địa chỉ đó nằm trong `FRONTEND_URL`; nếu không thì dùng địa chỉ đầu tiên của `FRONTEND_URL`.
+- `gatewayOrderId`: mã đơn gửi sang cổng, dạng `BL` + thời gian + số ngẫu nhiên. Không gửi số đơn vì cả nhóm dùng chung tài khoản sandbox (khóa test MoMo còn dùng chung toàn Internet), mà CSDL mỗi máy đều đánh số đơn từ 1.
+- API này **không** trả kết quả thanh toán. Frontend chuyển khách sang `paymentUrl`, đơn vẫn `PENDING` cho tới khi cổng xác nhận.
+- Phiên hết hạn sau 5 phút (`expiresAt`). VNPay tự chặn thanh toán sau `vnp_ExpireDate`. Phiên đã kết thúc hoặc hết hạn thì `paymentUrl = null`.
+- **Gửi lặp và thanh toán lại:**
+  - Gửi lại **cùng key**: trả đúng phiên cũ với `replayed: true`, không gọi cổng lần nữa. Dùng cùng key cho một đơn khác bị trả 409.
+  - Đơn đang có phiên còn hạn mà khách bấm thanh toán lại cùng cổng (key mới): trả về phiên đang mở. Chọn cổng khác thì 409, khách tiếp tục hoặc bấm hủy trên cổng cũ trước.
+  - Đơn `PAYMENT_FAILED` thanh toán lại bằng key mới: đơn về `PENDING` và mở phiên mới (đổi cổng được). Đơn đã `PAID` thì trả 409.
+
+### Cổng xác nhận kết quả
+
+Đơn chỉ sang `PAID` (cộng điểm thưởng) hoặc `PAYMENT_FAILED` khi **cổng xác nhận** bằng một trong ba đường, đều kiểm tra chữ ký của cổng:
+
+| Đường | Ai gọi | Ghi chú |
+| --- | --- | --- |
+| `POST /payments/:id/return` `{ "params": { …tham số trên link quay về… } }` | Trang `/payments/:id` của BrewLite, khi cổng chuyển khách về | Sai chữ ký, của giao dịch khác hoặc số tiền bị sửa → 400. Chữ ký đúng thì backend **gọi API tra cứu của cổng** (MoMo `/v2/gateway/api/query`, VNPay `querydr`) rồi mới cập nhật |
+| `GET /payments/:id` | Trang chờ, mỗi 1,5 giây | Phiên còn mở thì backend tra cứu cổng (tối đa 4 giây một lần). Khách trả bằng app trên điện thoại, máy tính vẫn biết kết quả |
+| IPN `POST /payments/momo/ipn`, `GET /payments/vnpay/ipn` | Server MoMo, VNPay | Chỉ tới được khi API có địa chỉ công khai (`PUBLIC_API_URL`; VNPay cấu hình IPN URL trong trang quản trị merchant). Chạy trên máy cá nhân thì dùng hai đường trên |
+
+- VNPay IPN trả `{ "RspCode", "Message" }` theo tài liệu VNPay:
+
+  | RspCode | Nghĩa | VNPay có gửi lại không |
+  | --- | --- | --- |
+  | `00` | Đã xử lý | Không |
+  | `02` | Đã xác nhận trước đó | Không |
+  | `01` | Không có giao dịch | Có |
+  | `04` | Sai số tiền | Có |
+  | `97` | Sai chữ ký | Có |
+
+- MoMo IPN trả 204; sai chữ ký → 400.
+- **Xác nhận lặp:** link quay về, IPN, tra cứu chạy cùng lúc chỉ được xử lý một lần, không cộng điểm hai lần.
+- **Cổng báo đã trừ tiền khi BrewLite đã cho phiên hết hạn:** vẫn ghi `SUCCESS`. Đơn còn chờ thì sang `PAID`; đơn đã tự hủy thì giữ `CANCELLED`, giao dịch vào mục *Cần hoàn tiền*.
+- **Bằng chứng giao dịch lưu trên `Payment`:**
+  - `gatewayRef`: mã giao dịch của cổng (MoMo `transId`, VNPay `vnp_TransactionNo`).
+  - `bankCode`: ngân hàng (VNPay).
+  - `payType`: hình thức (MoMo `napas`/`qr`/`credit`, VNPay `ATM`).
+  - `confirmedAt`: thời điểm xác nhận.
+  - `gatewayResult`: nguyên văn dữ liệu cổng gửi về, có chữ ký.
+
 ### GET /ingredients (nhân viên)
 
 → `200`
@@ -93,6 +165,21 @@ Không đủ nguyên liệu thì trả `409`, không trừ gì:
 - `amount`: lượng nhập thêm theo đơn vị của nguyên liệu, số nguyên từ 1 đến 1.000.000 (sai → 400). Nguyên liệu không tồn tại → 404.
 - Cộng thẳng vào tồn trong một câu `UPDATE` và tăng `version`, nên đơn đang trừ cùng nguyên liệu đó lúc ấy sẽ đọc lại tồn mới (optimistic locking), không ghi đè mất lượng vừa nhập.
 - Số ly còn bán được của mọi món dùng nguyên liệu này tăng theo ngay. Trang *Kho* có ô *Nhập kho* ở từng nguyên liệu.
+
+### Cấu hình cổng sandbox
+
+| Biến môi trường (backend) | Ý nghĩa |
+| --- | --- |
+| `VNPAY_TMN_CODE`, `VNPAY_HASH_SECRET` | Mã website và chuỗi bí mật VNPay gửi qua email khi đăng ký merchant sandbox ở https://sandbox.vnpayment.vn/devreg/. Chỉ để trong `.env`, không commit |
+| `MOMO_PARTNER_CODE`, `MOMO_ACCESS_KEY`, `MOMO_SECRET_KEY` | Để trống thì dùng bộ khóa test MoMo công bố công khai (`partnerCode = MOMO`) |
+| `PUBLIC_API_URL` | Địa chỉ công khai của API để MoMo gọi IPN |
+
+Thẻ thử nghiệm (hiện cả trong mục *Thông tin thẻ thử nghiệm* ở trang Thanh toán):
+
+| Cổng | Cách trả |
+| --- | --- |
+| VNPay | *Thẻ nội địa và tài khoản ngân hàng* → NCB, số thẻ `9704198526191432198`, tên `NGUYEN VAN A`, ngày phát hành `07/15`, OTP `123456` |
+| MoMo | *Thanh toán bằng thẻ ATM*, số thẻ `9704000000000018`, ngày phát hành `03/07`, tên `NGUYEN VAN A`, số điện thoại bất kỳ, OTP `OTP`. Hoặc quét mã bằng app MoMo bản test |
 
 ## Bảng giá
 

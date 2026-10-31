@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { OrderStatus, Prisma } from '@prisma/client';
 import { cupNeeds, RECIPE_SELECT } from '../ingredients/inventory';
+import { expireStalePaymentSessions } from '../payments/payment-session';
 import { isUniqueViolation, PrismaService } from '../prisma/prisma.service';
 import { assertTransition } from './order-state-machine';
 import { CreateOrderDto } from './orders.dto';
@@ -98,10 +99,16 @@ export class OrdersService {
    */
   changeStatus(id: number, to: OrderStatus) {
     return this.prisma.$transaction(async (tx) => {
-      // Khóa dòng đơn hàng để hai yêu cầu đổi trạng thái cùng một đơn không chạy chồng nhau
+      // Khóa dòng đơn hàng; PaymentsService cũng khóa dòng này nên hủy đơn và thanh toán không chạy chồng nhau
       await tx.$queryRaw`SELECT id FROM "Order" WHERE id = ${id} FOR UPDATE`;
       const order = await tx.order.findUnique({ where: { id } });
       if (!order) throw new NotFoundException('Không tìm thấy đơn hàng');
+      if (to === 'CANCELLED') {
+        // Phiên thanh toán khách bỏ dở quá hạn thì không còn chặn hủy đơn
+        await expireStalePaymentSessions(tx, id);
+        const inFlight = await tx.payment.count({ where: { orderId: id, status: 'PROCESSING' } });
+        if (inFlight > 0) throw new ConflictException('Đơn hàng đang được thanh toán, vui lòng đợi');
+      }
       await transitionOrder(tx, id, order.status, to);
       if (to === 'CANCELLED') {
         // Trả lại đúng lượng nguyên liệu đã trừ lúc đặt, cùng thứ tự id tăng dần như lúc trừ
