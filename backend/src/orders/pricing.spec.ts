@@ -1,5 +1,5 @@
 import { Promotion } from '@prisma/client';
-import { evaluatePromotion, unitPrice } from './pricing';
+import { evaluatePromotion, loyaltyPointsFor, unitPrice } from './pricing';
 
 const promo = (over: Partial<Promotion> = {}): Promotion => ({
   code: 'BREW10',
@@ -26,5 +26,9 @@ describe('pricing', () => {
     expect(evaluatePromotion(promo({ active: false }), 100000).ok).toBe(false);
     expect(evaluatePromotion(promo({ expiresAt: new Date('2020-01-01') }), 100000).ok).toBe(false);
     expect(evaluatePromotion(promo(), 30000).ok).toBe(false);
+  });
+
+  it('1 điểm thưởng cho mỗi 1.000đ', () => {
+    expect(loyaltyPointsFor(123500)).toBe(123);
   });
 });

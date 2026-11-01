@@ -5,7 +5,7 @@ import { expireStalePaymentSessions } from '../payments/payment-session';
 import { isUniqueViolation, PrismaService } from '../prisma/prisma.service';
 import { assertTransition } from './order-state-machine';
 import { CreateOrderDto } from './orders.dto';
-import { evaluatePromotion, unitPrice } from './pricing';
+import { evaluatePromotion, loyaltyPointsFor, unitPrice } from './pricing';
 
 export const ORDER_INCLUDE = {
   items: { orderBy: { id: 'asc' } },
@@ -117,6 +117,13 @@ export class OrdersService {
           await tx.ingredient.update({
             where: { id: u.ingredientId },
             data: { stock: { increment: u.amount }, version: { increment: 1 } },
+          });
+        }
+        // Đơn đã PAID thì thu hồi điểm thưởng đã cộng lúc thanh toán
+        if (order.status === 'PAID') {
+          await tx.user.update({
+            where: { id: order.userId },
+            data: { loyaltyPoints: { decrement: loyaltyPointsFor(order.total) } },
           });
         }
       }
