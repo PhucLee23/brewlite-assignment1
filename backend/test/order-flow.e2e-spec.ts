@@ -249,7 +249,23 @@ describe('BrewLite – luồng đặt hàng và nghiệp vụ Task 10 (e2e)', ()
       expect((await prisma.user.findUniqueOrThrow({ where: { email: customerEmail } })).loyaltyPoints).toBe(before);
     });
 
-    it('khách không hủy được đơn đã bắt đầu pha (409)', async () => {
+    it('nhân viên hủy đơn đã PAID tại quầy: trả nguyên liệu và thu hồi điểm thưởng', async () => {
+      const product = await createProduct(5, 40000);
+      const order = (await placeOrder(product.id).expect(201)).body;
+      const before = (await prisma.user.findUniqueOrThrow({ where: { email: customerEmail } })).loyaltyPoints;
+      await payAndConfirm(order.id);
+
+      await request(app.getHttpServer())
+        .patch(`/orders/${order.id}/status`)
+        .set(auth(staffToken))
+        .send({ status: 'CANCELLED' })
+        .expect(200);
+      expect((await prisma.order.findUniqueOrThrow({ where: { id: order.id } })).status).toBe('CANCELLED');
+      expect((await stockOf(product))).toBe(5);
+      expect((await prisma.user.findUniqueOrThrow({ where: { email: customerEmail } })).loyaltyPoints).toBe(before);
+    });
+
+    it('khách và nhân viên đều không hủy được đơn đã bắt đầu pha (409)', async () => {
       const product = await createProduct(5);
       const order = (await placeOrder(product.id).expect(201)).body;
       await payAndConfirm(order.id);
@@ -257,6 +273,7 @@ describe('BrewLite – luồng đặt hàng và nghiệp vụ Task 10 (e2e)', ()
         request(app.getHttpServer()).patch(`/orders/${order.id}/status`).set(auth(staffToken)).send({ status });
       await setStatus('PREPARING').expect(200);
       await request(app.getHttpServer()).post(`/orders/${order.id}/cancel`).set(auth()).expect(409);
+      await setStatus('CANCELLED').expect(409);
       expect((await prisma.order.findUniqueOrThrow({ where: { id: order.id } })).status).toBe('PREPARING');
     });
 
@@ -513,6 +530,46 @@ describe('BrewLite – luồng đặt hàng và nghiệp vụ Task 10 (e2e)', ()
       expect((await vnpayIpn(vnpayCallback(cancelled.payment, 'SUCCESS'))).body.RspCode).toBe('00');
       expect(await statusOf(cancelled.order.id)).toBe('CANCELLED');
       expect((await prisma.payment.findUniqueOrThrow({ where: { id: cancelled.payment.id } })).status).toBe('SUCCESS');
+    });
+  });
+
+  describe('Màn hình quầy của nhân viên (GET /orders)', () => {
+    type CounterRow = { id: number; status: string; user: { fullName: string }; items: unknown[] };
+    const counter = (query = '', t = staffToken) => request(app.getHttpServer()).get(`/orders${query}`).set(auth(t));
+    const idsOf = (body: { orders: CounterRow[] }) => body.orders.map((o) => o.id);
+
+    it('đơn đã thanh toán vào hàng chờ theo thứ tự trả tiền và đi qua từng nhóm khi nhân viên bấm', async () => {
+      // CSDL test giữ dữ liệu giữa các lần chạy: đóng hàng chờ cũ để hàng chờ (xếp cũ trước) bắt đầu từ đơn của test này
+      await prisma.order.updateMany({ where: { status: { in: ['PAID', 'PREPARING', 'READY'] } }, data: { status: 'COMPLETED' } });
+      const product = await createProduct(10);
+      const first = (await placeOrder(product.id).expect(201)).body;
+      const second = (await placeOrder(product.id).expect(201)).body;
+      const unpaid = (await placeOrder(product.id).expect(201)).body;
+      await payAndConfirm(first.id);
+      await payAndConfirm(second.id);
+
+      // Mặc định là nhóm PAID; đơn chưa thanh toán không lên quầy
+      const queue = (await counter().expect(200)).body;
+      const ids = idsOf(queue);
+      expect(ids.indexOf(first.id)).toBeGreaterThanOrEqual(0);
+      expect(ids.indexOf(first.id)).toBeLessThan(ids.indexOf(second.id));
+      expect(ids).not.toContain(unpaid.id);
+      expect(queue.orders.find((o: CounterRow) => o.id === first.id)).toMatchObject({
+        user: { fullName: 'Khách Test' },
+        items: [expect.objectContaining({ qty: 1 })],
+      });
+
+      const countsBefore = queue.counts;
+      await request(app.getHttpServer())
+        .patch(`/orders/${first.id}/status`)
+        .set(auth(staffToken))
+        .send({ status: 'PREPARING' })
+        .expect(200);
+      const preparing = (await counter('?status=PREPARING').expect(200)).body;
+      expect(idsOf(preparing)).toContain(first.id);
+      expect(preparing.counts.PAID).toBe(countsBefore.PAID - 1);
+      expect(preparing.counts.PREPARING).toBe(countsBefore.PREPARING + 1);
+      expect(idsOf((await counter('?status=PAID').expect(200)).body)).not.toContain(first.id);
     });
   });
 

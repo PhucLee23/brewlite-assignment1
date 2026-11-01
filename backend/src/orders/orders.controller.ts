@@ -1,8 +1,8 @@
-import { Body, Controller, Get, Headers, HttpCode, Param, ParseIntPipe, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Headers, HttpCode, Param, ParseIntPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { AuthUser } from '../auth/auth.types';
 import { CurrentUser, JwtAuthGuard, Roles, RolesGuard } from '../auth/guards';
 import { parseIdempotencyKey } from '../common/idempotency';
-import { CreateOrderDto, UpdateOrderStatusDto } from './orders.dto';
+import { CreateOrderDto, ListCounterOrdersQueryDto, UpdateOrderStatusDto } from './orders.dto';
 import { OrdersService } from './orders.service';
 
 @Controller('orders')
@@ -17,6 +17,14 @@ export class OrdersController {
     @Headers('idempotency-key') key?: string,
   ) {
     return this.orders.create(user.id, dto, parseIdempotencyKey(key, false));
+  }
+
+  /** Màn hình quầy của nhân viên: đơn theo nhóm trạng thái, kèm số đơn mỗi nhóm. */
+  @Get()
+  @UseGuards(RolesGuard)
+  @Roles('STAFF')
+  listForCounter(@Query() query: ListCounterOrdersQueryDto) {
+    return this.orders.listForCounter(query.status);
   }
 
   @Get('me')
