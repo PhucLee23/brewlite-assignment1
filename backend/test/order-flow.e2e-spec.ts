@@ -649,4 +649,67 @@ describe('BrewLite – luồng đặt hàng và nghiệp vụ Task 10 (e2e)', ()
       expect(await ingredientStock(milk.id)).toBe(0);
     });
   });
+
+  describe('(c) Đặt hàng đồng thời không vượt tồn kho', () => {
+    it('10 khách cùng đặt 2 món dùng chung nguyên liệu chỉ đủ 3 ly: đúng 3 đơn thành công, kho về 0', async () => {
+      const shared = await createIngredient(30);
+      const a = await createRecipeProduct([[shared.id, 10]]);
+      const b = await createRecipeProduct([[shared.id, 10]]);
+      const results = await Promise.all(
+        Array.from({ length: 10 }, (_, i) =>
+          request(app.getHttpServer())
+            .post('/orders')
+            .set(auth())
+            .send({ items: [{ productId: i % 2 ? a.id : b.id, size: 'S', qty: 1 }] }),
+        ),
+      );
+      expect(results.filter((r) => r.status === 201)).toHaveLength(3);
+      expect(results.filter((r) => r.status === 409)).toHaveLength(7);
+      expect(await ingredientStock(shared.id)).toBe(0);
+    });
+
+    it('10 khách cùng đặt món chỉ còn 3 phần: đúng 3 đơn thành công, tồn kho về 0', async () => {
+      const product = await createProduct(3);
+      const results = await Promise.all(Array.from({ length: 10 }, () => placeOrder(product.id, 1)));
+
+      const created = results.filter((r) => r.status === 201);
+      const rejected = results.filter((r) => r.status === 409);
+      expect(created).toHaveLength(3);
+      expect(rejected).toHaveLength(7);
+
+      expect(await stockOf(product)).toBe(0);
+      const sold = await prisma.orderItem.aggregate({ where: { productId: product.id }, _sum: { qty: true } });
+      expect(sold._sum.qty).toBe(3);
+    });
+
+    it('đặt song song nhiều số lượng khác nhau vẫn không bán âm', async () => {
+      const product = await createProduct(7);
+      const qtys = [3, 2, 4, 1, 2, 3];
+      await Promise.all(qtys.map((q) => placeOrder(product.id, q)));
+      const after = await stockOf(product);
+      const sold = await prisma.orderItem.aggregate({ where: { productId: product.id }, _sum: { qty: true } });
+      expect(after).toBeGreaterThanOrEqual(0);
+      expect((sold._sum.qty ?? 0) + after).toBe(7);
+    });
+
+    it('đặt song song 2 món dùng chung nguyên liệu theo thứ tự ngược nhau không bị deadlock', async () => {
+      const milk = await createIngredient(1000, false);
+      const sugar = await createIngredient(1000, false);
+      const a = await createRecipeProduct([[milk.id, 1], [sugar.id, 2]]);
+      const b = await createRecipeProduct([[sugar.id, 3], [milk.id, 4]]);
+      const item = (productId: number) => ({ productId, size: 'S', qty: 1 });
+      const results = await Promise.all(
+        Array.from({ length: 10 }, (_, i) =>
+          request(app.getHttpServer())
+            .post('/orders')
+            .set(auth())
+            .send({ items: i % 2 ? [item(a.id), item(b.id)] : [item(b.id), item(a.id)] }),
+        ),
+      );
+      expect(results.map((r) => r.status)).toEqual(Array(10).fill(201));
+      // Mỗi đơn có 1 ly a và 1 ly b: sữa 1 + 4, đường 2 + 3
+      expect(await ingredientStock(milk.id)).toBe(950);
+      expect(await ingredientStock(sugar.id)).toBe(950);
+    });
+  });
 });
