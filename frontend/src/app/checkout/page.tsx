@@ -2,12 +2,14 @@
 
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { EmptyState, ErrorBox, inputClass, primaryButton, secondaryButton, Spinner, StatusBadge } from "@/components/ui";
+import PaymentForm from "@/components/PaymentForm";
+import { EmptyState, inputClass, secondaryButton, Spinner } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
 import { formatVND } from "@/lib/format";
 import { useRequireAuth } from "@/lib/hooks";
 import { orderKeyFor } from "@/lib/orderKey";
-import type { Order, PromotionCheck } from "@/lib/types";
+import { startPayment } from "@/lib/payment";
+import type { Order, PaymentProvider, PromotionCheck } from "@/lib/types";
 import { useAuth } from "@/store/auth";
 import { selectTotal, useCart } from "@/store/cart";
 
@@ -23,9 +25,8 @@ export default function CheckoutPage() {
   const [promoError, setPromoError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [placed, setPlaced] = useState<Order | null>(null);
 
-  // Cùng giỏ hàng + cùng mã giảm giá → cùng key, nên bấm đặt lại (mạng chập chờn, bấm hai lần)
+  // Cùng giỏ hàng + cùng mã giảm giá → cùng key, nên bấm thanh toán lại (kể cả sau khi từ cổng quay về)
   // không tạo đơn thứ hai
   const cartSignature = JSON.stringify([items.map((i) => [i.key, i.qty]), promo?.code]);
   // Giỏ chưa đọc xong từ localStorage thì đang rỗng: chưa lấy key, kẻo ghi đè key của giỏ thật
@@ -55,7 +56,7 @@ export default function CheckoutPage() {
     }
   }
 
-  async function placeOrder() {
+  async function pay(provider: PaymentProvider) {
     setSubmitting(true);
     setError(null);
     try {
@@ -73,8 +74,9 @@ export default function CheckoutPage() {
           promoCode: promo?.code,
         },
       });
-      // Đơn ở trạng thái PENDING (chờ thanh toán); giỏ hàng giữ nguyên cho tới khi thanh toán xong
-      setPlaced(order);
+      // Sang trang thanh toán của cổng. Giỏ hàng giữ nguyên; chỉ xóa khi cổng đã xác nhận thanh toán thành công
+      await startPayment(token, order.id, provider);
+      return;
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         logout();
@@ -148,25 +150,8 @@ export default function CheckoutPage() {
         </dl>
       </section>
 
-      <section className="flex flex-col gap-4 rounded-2xl border border-latte bg-white p-5">
-        {placed ? (
-          <div role="status" className="flex flex-col gap-2">
-            <p className="text-lg">
-              Đã tạo đơn <span className="font-mono font-bold">#{placed.id}</span>
-            </p>
-            <div>
-              <StatusBadge status={placed.status} />
-            </div>
-            <p className="text-sm text-roast">Tổng {formatVND(placed.total)}. Đơn đang chờ thanh toán.</p>
-          </div>
-        ) : (
-          <>
-            {error && <ErrorBox message={error} />}
-            <button onClick={placeOrder} disabled={submitting} className={primaryButton}>
-              {submitting ? "Đang đặt đơn..." : `Đặt đơn ${formatVND(total)}`}
-            </button>
-          </>
-        )}
+      <section className="rounded-2xl border border-latte bg-white p-5">
+        <PaymentForm total={total} submitting={submitting} error={error} onPay={pay} />
       </section>
     </div>
   );

@@ -1,4 +1,6 @@
 export type Size = "S" | "M" | "L";
+/** Cổng thanh toán bên thứ ba (môi trường sandbox). */
+export type PaymentProvider = "MOMO" | "VNPAY";
 export type OrderStatus =
   | "PENDING"
   | "PAID"
@@ -65,6 +67,31 @@ export interface Order {
   promotionCode: string | null;
   createdAt: string;
   items: OrderItem[];
+}
+
+/** Thông tin một giao dịch; mã giao dịch, ngân hàng chỉ có khi cổng đã xác nhận. */
+export interface PaymentInfo {
+  id: number;
+  orderId: number;
+  status: "PROCESSING" | "SUCCESS" | "FAILED";
+  provider: PaymentProvider | null;
+  amount: number;
+  gatewayOrderId: string | null;
+  gatewayRef: string | null;
+  bankCode: string | null;
+  payType: string | null;
+  confirmedAt: string | null;
+  createdAt: string;
+}
+
+/** Kết quả POST /payments: phiên thanh toán ở cổng MoMo hoặc VNPay. Đơn chỉ sang PAID khi cổng xác nhận. */
+export interface PaymentSession {
+  replayed: boolean;
+  payment: PaymentInfo;
+  order: Order;
+  expiresAt: string;
+  /** Link sang trang thanh toán của cổng; null khi phiên đã kết thúc hoặc hết hạn. */
+  paymentUrl: string | null;
 }
 
 export type PromotionCheck =
