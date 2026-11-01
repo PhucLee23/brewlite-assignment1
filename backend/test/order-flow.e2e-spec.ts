@@ -287,4 +287,97 @@ describe('BrewLite – luồng đặt hàng và nghiệp vụ Task 10 (e2e)', ()
       expect((await stockOf(product))).toBe(4);
     });
   });
+
+  describe('(b) Idempotency-Key: gửi lặp chỉ tạo 1 đơn và chỉ trừ tiền 1 lần', () => {
+    it('gửi POST /orders 2 lần cùng key chỉ tạo 1 đơn', async () => {
+      const product = await createProduct(10);
+      const key = `order-${uniq()}`;
+      const first = await placeOrder(product.id, 1, key).expect(201);
+      const second = await placeOrder(product.id, 1, key).expect(201);
+      expect(second.body.id).toBe(first.body.id);
+      expect(await prisma.order.count({ where: { items: { some: { productId: product.id } } } })).toBe(1);
+      expect((await stockOf(product))).toBe(9);
+    });
+
+    it('5 request POST /orders song song cùng key vẫn chỉ tạo 1 đơn', async () => {
+      const product = await createProduct(10);
+      const key = `order-${uniq()}`;
+      const results = await Promise.all(Array.from({ length: 5 }, () => placeOrder(product.id, 1, key)));
+      const ids = new Set(results.map((r) => r.body.id));
+      expect(results.every((r) => r.status === 201)).toBe(true);
+      expect(ids.size).toBe(1);
+      expect(await prisma.order.count({ where: { items: { some: { productId: product.id } } } })).toBe(1);
+    });
+
+    it('gửi POST /payments 2 lần (cả tuần tự lẫn song song) cùng key chỉ mở 1 phiên, gọi MoMo tạo giao dịch 1 lần', async () => {
+      const product = await createProduct(10, 40000);
+      const order = (await placeOrder(product.id).expect(201)).body;
+      const key = `pay-${uniq()}`;
+      const createsBefore = gateways.momoCreates;
+
+      const [a, b] = await Promise.all([pay(order.id, key, 'MOMO'), pay(order.id, key, 'MOMO')]);
+      const third = await pay(order.id, key, 'MOMO').expect(201);
+      expect([a.status, b.status]).toEqual([201, 201]);
+      expect(new Set([a.body.payment.id, b.body.payment.id, third.body.payment.id]).size).toBe(1);
+      expect(third.body.replayed).toBe(true);
+      expect(third.body.paymentUrl).toContain(third.body.payment.gatewayOrderId);
+      expect(gateways.momoCreates - createsBefore).toBe(1);
+      expect(await prisma.payment.count({ where: { orderId: order.id } })).toBe(1);
+    });
+
+    it('cổng báo thành công nhiều lần (IPN gửi lặp song song, khách quay về cùng lúc) chỉ cộng điểm 1 lần', async () => {
+      const product = await createProduct(10, 40000);
+      const order = (await placeOrder(product.id).expect(201)).body;
+      const before = await prisma.user.findFirstOrThrow({ where: { orders: { some: { id: order.id } } } });
+      const session = (await pay(order.id, `pay-${uniq()}`).expect(201)).body;
+      const transId = gateways.resolve(session.payment, 'SUCCESS');
+      const callback = vnpayCallback(session.payment, 'SUCCESS', transId);
+
+      const sent = await Promise.all([vnpayIpn(callback), vnpayIpn(callback), vnpayIpn(callback)]);
+      const back = await returnFromGateway(session.payment.id, callback).expect(200);
+      const codes = sent.map((r) => r.body.RspCode).sort();
+      expect(codes).toEqual(['00', '02', '02']);
+      expect(back.body.order.status).toBe('PAID');
+      expect((await vnpayIpn(callback)).body.RspCode).toBe('02');
+
+      const after = await prisma.user.findUniqueOrThrow({ where: { id: before.id } });
+      expect(after.loyaltyPoints - before.loyaltyPoints).toBe(45); // 45.000đ → 45 điểm
+    });
+
+    it('bấm thanh toán lại khi phiên cũ còn hạn thì dùng tiếp phiên cũ, không mở phiên thứ hai', async () => {
+      const product = await createProduct(10);
+      const order = (await placeOrder(product.id).expect(201)).body;
+      const first = (await pay(order.id, `pay-${uniq()}`).expect(201)).body;
+      const second = (await pay(order.id, `pay-${uniq()}`).expect(201)).body;
+      expect(second.payment.id).toBe(first.payment.id);
+      expect(second.paymentUrl).toBe(first.paymentUrl);
+      expect(await prisma.payment.count({ where: { orderId: order.id } })).toBe(1);
+    });
+
+    it('đang có phiên VNPay chưa xong thì không mở thêm phiên MoMo (409)', async () => {
+      const product = await createProduct(10);
+      const order = (await placeOrder(product.id).expect(201)).body;
+      await pay(order.id, `pay-${uniq()}`, 'VNPAY').expect(201);
+      const res = await pay(order.id, `pay-${uniq()}`, 'MOMO').expect(409);
+      expect(res.body.message).toContain('VNPay');
+      expect(await prisma.payment.count({ where: { orderId: order.id } })).toBe(1);
+    });
+
+    it('dùng lại key cho một đơn khác bị từ chối (409)', async () => {
+      const product = await createProduct(10);
+      const o1 = (await placeOrder(product.id).expect(201)).body;
+      const o2 = (await placeOrder(product.id).expect(201)).body;
+      const key = `pay-${uniq()}`;
+      await pay(o1.id, key).expect(201);
+      await pay(o2.id, key).expect(409);
+    });
+
+    it('không thể thanh toán lại đơn đã PAID bằng key mới', async () => {
+      const product = await createProduct(10);
+      const order = (await placeOrder(product.id).expect(201)).body;
+      await payAndConfirm(order.id);
+      await pay(order.id, `pay-${uniq()}`).expect(409);
+      expect(await prisma.payment.count({ where: { orderId: order.id } })).toBe(1);
+    });
+  });
 });
