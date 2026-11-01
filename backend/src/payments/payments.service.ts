@@ -9,6 +9,7 @@ import { Order, Payment, PaymentProvider, Prisma } from '@prisma/client';
 import { randomBytes } from 'crypto';
 import { assertTransition } from '../orders/order-state-machine';
 import { ORDER_INCLUDE, transitionOrder } from '../orders/orders.service';
+import { loyaltyPointsFor } from '../orders/pricing';
 import { isUniqueViolation, PrismaService } from '../prisma/prisma.service';
 import { GatewayError, GatewayHttp, GatewayResult, PaymentGateway } from './gateways/gateway';
 import { MomoGateway } from './gateways/momo';
@@ -114,7 +115,8 @@ export class PaymentsService {
   }
 
   /**
-   * Ghi kết quả cổng đã chốt. Cổng báo lặp (link quay về, IPN, tra cứu cùng lúc) chỉ được xử lý một lần.
+   * Ghi kết quả cổng đã chốt. Cổng báo lặp (link quay về, IPN, tra cứu cùng lúc) chỉ được xử lý một lần,
+   * nên không cộng điểm hai lần.
    */
   private async settle(paymentId: number, result: GatewayResult) {
     const payment = await this.prisma.payment.findUniqueOrThrow({ where: { id: paymentId } });
@@ -154,6 +156,10 @@ export class PaymentsService {
       // shortcut: đơn đã hủy (hoặc đã trả bằng phiên khác) thì giữ nguyên; tiền hiện ở mục cần hoàn
       if (status === 'PENDING') {
         await transitionOrder(tx, order.id, 'PENDING', 'PAID');
+        await tx.user.update({
+          where: { id: order.userId },
+          data: { loyaltyPoints: { increment: loyaltyPointsFor(current.amount) } },
+        });
       }
       return { duplicate: false, status: 'SUCCESS' as const };
     }, TX_OPTIONS);

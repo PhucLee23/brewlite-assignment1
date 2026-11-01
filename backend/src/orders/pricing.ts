@@ -3,6 +3,9 @@ import { Promotion, Size } from '@prisma/client';
 /** Phụ thu theo size (VNĐ), cộng vào giá gốc (size S). */
 export const SIZE_SURCHARGE: Record<Size, number> = { S: 0, M: 5000, L: 10000 };
 
+/** 1 điểm thưởng cho mỗi 1.000đ thanh toán thành công. */
+export const VND_PER_LOYALTY_POINT = 1000;
+
 export function unitPrice(basePrice: number, size: Size, toppingPrices: number[]): number {
   return basePrice + SIZE_SURCHARGE[size] + toppingPrices.reduce((sum, p) => sum + p, 0);
 }
@@ -16,4 +19,8 @@ export function evaluatePromotion(promo: Promotion | null, subtotal: number, now
     return { ok: false, reason: `Đơn tối thiểu ${promo.minTotal.toLocaleString('vi-VN')}đ để dùng mã này` };
   }
   return { ok: true, discount: Math.floor((subtotal * promo.percentOff) / 100) };
+}
+
+export function loyaltyPointsFor(total: number): number {
+  return Math.floor(total / VND_PER_LOYALTY_POINT);
 }
