@@ -49,10 +49,21 @@ export class CreateOrderDto {
   promoCode?: string;
 }
 
-/** Nhân viên quầy chỉ đẩy đơn qua các bước pha chế; PAID và PAYMENT_FAILED chỉ do POST /payments đặt. */
-export const STAFF_SETTABLE_STATUSES = ['PREPARING', 'READY', 'COMPLETED'] as const satisfies readonly OrderStatus[];
+/** PAID và PAYMENT_FAILED chỉ do POST /payments đặt, nhân viên không được tự đổi. */
+export const STAFF_SETTABLE_STATUSES = ['PREPARING', 'READY', 'COMPLETED', 'CANCELLED'] as const satisfies readonly OrderStatus[];
 
 export class UpdateOrderStatusDto {
   @IsIn(STAFF_SETTABLE_STATUSES, { message: `Trạng thái phải là ${STAFF_SETTABLE_STATUSES.join(', ')}` })
   status!: (typeof STAFF_SETTABLE_STATUSES)[number];
+}
+
+/** Các nhóm đơn trên màn hình quầy. Ba nhóm đầu là hàng đợi nhân viên phải xử lý. */
+export const COUNTER_STATUSES = ['PAID', 'PREPARING', 'READY', 'COMPLETED', 'CANCELLED'] as const satisfies readonly OrderStatus[];
+export type CounterStatus = (typeof COUNTER_STATUSES)[number];
+export const COUNTER_QUEUE: readonly CounterStatus[] = ['PAID', 'PREPARING', 'READY'];
+
+export class ListCounterOrdersQueryDto {
+  @IsOptional()
+  @IsIn(COUNTER_STATUSES, { message: `Trạng thái lọc phải là ${COUNTER_STATUSES.join(', ')}` })
+  status: CounterStatus = 'PAID';
 }

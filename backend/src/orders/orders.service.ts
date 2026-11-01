@@ -4,7 +4,7 @@ import { cupNeeds, RECIPE_SELECT } from '../ingredients/inventory';
 import { expireStalePaymentSessions } from '../payments/payment-session';
 import { isUniqueViolation, PrismaService } from '../prisma/prisma.service';
 import { assertTransition } from './order-state-machine';
-import { CreateOrderDto } from './orders.dto';
+import { COUNTER_QUEUE, COUNTER_STATUSES, CounterStatus, CreateOrderDto } from './orders.dto';
 import { evaluatePromotion, loyaltyPointsFor, unitPrice } from './pricing';
 
 export const ORDER_INCLUDE = {
@@ -17,6 +17,8 @@ const TX_OPTIONS = { maxWait: 10_000, timeout: 20_000 };
 
 /** Đơn chưa thanh toán quá thời gian này sẽ tự hủy để trả nguyên liệu về kho. */
 export const UNPAID_ORDER_TTL_MS = 5 * 60_000;
+/** Màn hình quầy chỉ hiện chừng này đơn mỗi nhóm; số đếm vẫn tính trên toàn bộ. */
+const COUNTER_PAGE_SIZE = 100;
 
 type Tx = Prisma.TransactionClient;
 
@@ -93,9 +95,25 @@ export class OrdersService {
     return this.changeStatus(id, 'CANCELLED');
   }
 
+  /** Màn hình quầy: đơn đang chờ xử lý xếp cũ trước (ai trả tiền trước được pha trước), các nhóm khác mới trước. */
+  async listForCounter(status: CounterStatus) {
+    const [grouped, orders] = await Promise.all([
+      this.prisma.order.groupBy({ by: ['status'], where: { status: { in: [...COUNTER_STATUSES] } }, _count: true }),
+      this.prisma.order.findMany({
+        where: { status },
+        orderBy: { createdAt: COUNTER_QUEUE.includes(status) ? 'asc' : 'desc' },
+        take: COUNTER_PAGE_SIZE,
+        include: { ...ORDER_INCLUDE, user: { select: { fullName: true } } },
+      }),
+    ]);
+    const counts = Object.fromEntries(COUNTER_STATUSES.map((s) => [s, 0])) as Record<CounterStatus, number>;
+    for (const g of grouped) counts[g.status as CounterStatus] = g._count;
+    return { counts, orders };
+  }
+
   /**
-   * Dùng cho nhân viên quầy (PAID → PREPARING → READY → COMPLETED) và khi khách hủy đơn.
-   * Từ PREPARING trở đi assertTransition chặn việc hủy.
+   * Dùng cho nhân viên quầy (PAID → PREPARING → READY → COMPLETED) và khi hủy đơn.
+   * Khách và nhân viên đều hủy được đơn chưa pha; từ PREPARING trở đi assertTransition chặn.
    */
   changeStatus(id: number, to: OrderStatus) {
     return this.prisma.$transaction(async (tx) => {
