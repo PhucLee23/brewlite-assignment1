@@ -380,4 +380,139 @@ describe('BrewLite – luồng đặt hàng và nghiệp vụ Task 10 (e2e)', ()
       expect(await prisma.payment.count({ where: { orderId: order.id } })).toBe(1);
     });
   });
+
+  describe('Thanh toán qua cổng MoMo, VNPay (bên thứ ba, sandbox)', () => {
+    async function openSession(provider: 'MOMO' | 'VNPAY' = 'VNPAY') {
+      const product = await createProduct(10);
+      const order = (await placeOrder(product.id).expect(201)).body;
+      const session = (await pay(order.id, `pay-${uniq()}`, provider).expect(201)).body;
+      return { order, session, payment: session.payment as Session['payment'] };
+    }
+    const statusOf = async (orderId: number) => (await prisma.order.findUniqueOrThrow({ where: { id: orderId } })).status;
+
+    it('VNPay: trả link sandbox có chữ ký đúng số tiền, hết hạn sau 5 phút; đơn vẫn PENDING', async () => {
+      const { order, session } = await openSession('VNPAY');
+      expect(session.order.status).toBe('PENDING');
+      expect(session.payment).toMatchObject({ status: 'PROCESSING', provider: 'VNPAY' });
+      expect(session.payment).not.toHaveProperty('idempotencyKey');
+      expect(Date.parse(session.expiresAt) - Date.parse(session.payment.createdAt)).toBe(5 * 60_000);
+
+      const url = new URL(session.paymentUrl);
+      expect(url.host).toBe('sandbox.vnpayment.vn');
+      const params = Object.fromEntries(url.searchParams);
+      expect(params).toMatchObject({
+        vnp_Amount: String(order.total * 100),
+        vnp_TxnRef: session.payment.gatewayOrderId,
+        vnp_ReturnUrl: `http://localhost:3000/payments/${session.payment.id}`,
+      });
+      const vnTime = (t: string) => Date.parse(`${t.slice(0, 4)}-${t.slice(4, 6)}-${t.slice(6, 8)}T${t.slice(8, 10)}:${t.slice(10, 12)}:${t.slice(12)}+07:00`);
+      expect(vnTime(params.vnp_ExpireDate) - vnTime(params.vnp_CreateDate)).toBe(5 * 60_000);
+      // Khách sửa số tiền trên link thì chữ ký không còn khớp
+      expect(vnpayCallback({ ...session.payment, amount: 1000 }, 'SUCCESS').vnp_SecureHash).not.toBe(params.vnp_SecureHash);
+    });
+
+    it('MoMo: gọi API tạo giao dịch lấy link; MoMo từ chối thì 502 và bấm thanh toán lại được ngay', async () => {
+      const product = await createProduct(10);
+      const order = (await placeOrder(product.id).expect(201)).body;
+      gateways.failNextCreate = true;
+      const failed = await pay(order.id, `pay-${uniq()}`, 'MOMO').expect(502);
+      expect(failed.body.message).toContain('MoMo');
+      expect(await statusOf(order.id)).toBe('PENDING');
+
+      const ok = (await pay(order.id, `pay-${uniq()}`, 'MOMO').expect(201)).body;
+      expect(new URL(ok.paymentUrl).host).toBe('test-payment.momo.vn');
+    });
+
+    it('khách quay về với kết quả có chữ ký: backend tra cứu lại cổng rồi mới chuyển PAID và lưu mã giao dịch', async () => {
+      const { order, payment } = await openSession('VNPAY');
+      const transId = gateways.resolve(payment, 'SUCCESS');
+      const back = await returnFromGateway(payment.id, vnpayCallback(payment, 'SUCCESS', transId)).expect(200);
+      expect(back.body.order.status).toBe('PAID');
+      expect(back.body.paymentUrl).toBeNull();
+      expect(await prisma.payment.findUniqueOrThrow({ where: { id: payment.id } })).toMatchObject({
+        status: 'SUCCESS',
+        gatewayRef: transId,
+        bankCode: 'NCB',
+      });
+      expect(await statusOf(order.id)).toBe('PAID');
+    });
+
+    it('kết quả quay về sai chữ ký, của giao dịch khác hoặc của người khác bị từ chối; đơn không đổi', async () => {
+      const { order, payment } = await openSession('VNPAY');
+      const other = await openSession('VNPAY');
+      const forged = { ...vnpayCallback(payment, 'SUCCESS'), vnp_SecureHash: 'f'.repeat(128) };
+      await returnFromGateway(payment.id, forged).expect(400);
+      await returnFromGateway(payment.id, vnpayCallback(other.payment, 'SUCCESS')).expect(400);
+      await returnFromGateway(payment.id, vnpayCallback(payment, 'SUCCESS'), staffToken).expect(404);
+      // Tự sửa số tiền trên link quay về thì chữ ký sai
+      await returnFromGateway(payment.id, { ...vnpayCallback(payment, 'SUCCESS'), vnp_Amount: '100' }).expect(400);
+      expect(await statusOf(order.id)).toBe('PENDING');
+    });
+
+    it('trả bằng app trên điện thoại: trang chờ hỏi GET /payments/:id, backend tự tra cứu MoMo và cập nhật', async () => {
+      const { order, payment } = await openSession('MOMO');
+      const waiting = (await request(app.getHttpServer()).get(`/payments/${payment.id}`).set(auth()).expect(200)).body;
+      expect(waiting.payment.status).toBe('PROCESSING');
+      expect(waiting.paymentUrl).toContain('test-payment.momo.vn');
+      await request(app.getHttpServer()).get(`/payments/${payment.id}`).set(auth(staffToken)).expect(404);
+
+      gateways.resolve(payment, 'SUCCESS');
+      // Backend chỉ hỏi cổng mỗi 4 giây một lần cho mỗi giao dịch
+      await new Promise((r) => setTimeout(r, 4100));
+      const done = (await request(app.getHttpServer()).get(`/payments/${payment.id}`).set(auth()).expect(200)).body;
+      expect(done.payment).toMatchObject({ status: 'SUCCESS', payType: 'napas' });
+      expect(done.paymentUrl).toBeNull();
+      expect(await statusOf(order.id)).toBe('PAID');
+    });
+
+    it('IPN VNPay: sai chữ ký 97, không có giao dịch 01, sai số tiền 04, đúng 00, gửi lại 02', async () => {
+      const { order, payment } = await openSession('VNPAY');
+      expect((await vnpayIpn({ ...vnpayCallback(payment, 'SUCCESS'), vnp_SecureHash: '0'.repeat(128) })).body.RspCode).toBe('97');
+      expect((await vnpayIpn(vnpayCallback({ ...payment, gatewayOrderId: 'BLKHONGCO' }, 'SUCCESS'))).body.RspCode).toBe('01');
+      expect((await vnpayIpn(vnpayCallback(payment, 'SUCCESS', undefined, 1000))).body.RspCode).toBe('04');
+      expect(await statusOf(order.id)).toBe('PENDING');
+      const ok = vnpayCallback(payment, 'SUCCESS');
+      expect((await vnpayIpn(ok)).body).toEqual({ RspCode: '00', Message: 'Confirm Success' });
+      expect((await vnpayIpn(ok)).body.RspCode).toBe('02');
+      expect(await statusOf(order.id)).toBe('PAID');
+    });
+
+    it('IPN MoMo: sai chữ ký 400, đúng chữ ký 204 và đơn sang PAID', async () => {
+      const { order, payment } = await openSession('MOMO');
+      const ipn = (body: object) => request(app.getHttpServer()).post('/payments/momo/ipn').send(body);
+      await ipn({ ...momoCallback(payment, 'SUCCESS'), amount: '1000' }).expect(400);
+      expect(await statusOf(order.id)).toBe('PENDING');
+      await ipn(momoCallback(payment, 'SUCCESS')).expect(204);
+      expect(await statusOf(order.id)).toBe('PAID');
+    });
+
+    it('khách bấm hủy trên cổng → PAYMENT_FAILED, thanh toán lại bằng cổng khác → PAID', async () => {
+      const { order, payment } = await openSession('VNPAY');
+      gateways.resolve(payment, 'FAILED');
+      await returnFromGateway(payment.id, vnpayCallback(payment, 'FAILED')).expect(200);
+      expect(await statusOf(order.id)).toBe('PAYMENT_FAILED');
+      expect((await prisma.payment.findUniqueOrThrow({ where: { id: payment.id } })).status).toBe('FAILED');
+
+      const retry = (await pay(order.id, `pay-${uniq()}`, 'MOMO').expect(201)).body;
+      expect(retry.payment.id).not.toBe(payment.id);
+      expect(retry.order.status).toBe('PENDING');
+      gateways.resolve(retry.payment, 'SUCCESS');
+      await returnFromGateway(retry.payment.id, momoCallback(retry.payment, 'SUCCESS')).expect(200);
+      expect(await statusOf(order.id)).toBe('PAID');
+    });
+
+    it('cổng báo đã trừ tiền sau khi phiên hết hạn: đơn còn chờ thì PAID, đơn đã hủy vẫn ghi nhận giao dịch', async () => {
+      const waiting = await openSession('VNPAY');
+      await prisma.$executeRaw`UPDATE "Payment" SET "createdAt" = now() - interval '6 minutes' WHERE id = ${waiting.payment.id}`;
+      expect((await vnpayIpn(vnpayCallback(waiting.payment, 'SUCCESS'))).body.RspCode).toBe('00');
+      expect(await statusOf(waiting.order.id)).toBe('PAID');
+
+      const cancelled = await openSession('VNPAY');
+      await prisma.$executeRaw`UPDATE "Payment" SET "createdAt" = now() - interval '6 minutes' WHERE id = ${cancelled.payment.id}`;
+      await request(app.getHttpServer()).post(`/orders/${cancelled.order.id}/cancel`).set(auth()).expect(200);
+      expect((await vnpayIpn(vnpayCallback(cancelled.payment, 'SUCCESS'))).body.RspCode).toBe('00');
+      expect(await statusOf(cancelled.order.id)).toBe('CANCELLED');
+      expect((await prisma.payment.findUniqueOrThrow({ where: { id: cancelled.payment.id } })).status).toBe('SUCCESS');
+    });
+  });
 });
