@@ -515,4 +515,138 @@ describe('BrewLite – luồng đặt hàng và nghiệp vụ Task 10 (e2e)', ()
       expect((await prisma.payment.findUniqueOrThrow({ where: { id: cancelled.payment.id } })).status).toBe('SUCCESS');
     });
   });
+
+  describe('Tồn kho theo nguyên liệu và công thức', () => {
+    it('hai món dùng chung nguyên liệu: bán món này thì số ly món kia giảm theo', async () => {
+      const shared = await createIngredient(100);
+      const cup = await createIngredient(50, false);
+      const a = await createRecipeProduct([[shared.id, 20], [cup.id, 1]]);
+      const b = await createRecipeProduct([[shared.id, 10], [cup.id, 1]]);
+      expect((await productStock(b.id)).stock).toBe(10);
+
+      await request(app.getHttpServer())
+        .post('/orders')
+        .set(auth())
+        .send({ items: [{ productId: a.id, size: 'S', qty: 2 }] })
+        .expect(201);
+      expect(await ingredientStock(shared.id)).toBe(60);
+      expect((await productStock(a.id)).stock).toBe(3);
+      expect((await productStock(b.id)).stock).toBe(6);
+      const list = (await request(app.getHttpServer()).get('/products').expect(200)).body as { id: number; stock: number }[];
+      expect(list.find((p) => p.id === b.id)?.stock).toBe(6);
+    });
+
+    it('size lớn tốn nhiều nguyên liệu hơn, ly nhựa thì mỗi ly vẫn 1 cái', async () => {
+      const coffee = await createIngredient(300);
+      const cup = await createIngredient(50, false);
+      const product = await createRecipeProduct([[coffee.id, 20], [cup.id, 1]]);
+      // S cần 20, M cần 25, L cần 30
+      const sizes = (await productStock(product.id)).sizes as { size: string; stock: number }[];
+      expect(sizes.map((s) => s.stock)).toEqual([15, 12, 10]);
+
+      await request(app.getHttpServer())
+        .post('/orders')
+        .set(auth())
+        .send({ items: [{ productId: product.id, size: 'L', qty: 2 }] })
+        .expect(201);
+      expect(await ingredientStock(coffee.id)).toBe(240);
+      expect(await ingredientStock(cup.id)).toBe(48);
+    });
+
+    it('topping trừ nguyên liệu riêng; không đủ nguyên liệu topping thì báo 409', async () => {
+      const product = await createProduct(10);
+      const pearl = await createIngredient(60);
+      const topping = await prisma.topping.create({
+        data: { name: `Topping test ${uniq()}`, price: 5000, recipe: { create: [{ ingredientId: pearl.id, amount: 50 }] } },
+      });
+      const detail = await productStock(product.id);
+      expect(detail.toppings.find((t: { id: number }) => t.id === topping.id).stock).toBe(1);
+
+      const order = (qty: number) =>
+        request(app.getHttpServer())
+          .post('/orders')
+          .set(auth())
+          .send({ items: [{ productId: product.id, size: 'M', toppingIds: [topping.id], qty }] });
+      const rejected = await order(2).expect(409);
+      expect(rejected.body.message).toContain('chỉ còn 1 ly');
+      expect(await stockOf(product)).toBe(10);
+      await order(1).expect(201);
+      expect(await ingredientStock(pearl.id)).toBe(10);
+      expect(await stockOf(product)).toBe(9);
+    });
+
+    it('hủy đơn trả lại đúng lượng nguyên liệu đã trừ, kể cả theo size và topping', async () => {
+      const milk = await createIngredient(1000);
+      const cup = await createIngredient(10, false);
+      const product = await createRecipeProduct([[milk.id, 100], [cup.id, 1]]);
+      const extra = await createIngredient(500);
+      const topping = await prisma.topping.create({
+        data: { name: `Topping test ${uniq()}`, price: 7000, recipe: { create: [{ ingredientId: extra.id, amount: 30 }] } },
+      });
+      const order = (
+        await request(app.getHttpServer())
+          .post('/orders')
+          .set(auth())
+          .send({ items: [{ productId: product.id, size: 'L', toppingIds: [topping.id], qty: 2 }] })
+          .expect(201)
+      ).body;
+      expect([await ingredientStock(milk.id), await ingredientStock(cup.id), await ingredientStock(extra.id)]).toEqual([700, 8, 440]);
+
+      await request(app.getHttpServer()).post(`/orders/${order.id}/cancel`).set(auth()).expect(200);
+      expect([await ingredientStock(milk.id), await ingredientStock(cup.id), await ingredientStock(extra.id)]).toEqual([1000, 10, 500]);
+    });
+
+    it('hai món trong đơn cộng lại vượt nguyên liệu dùng chung: báo 409 và không trừ gì', async () => {
+      const shared = await createIngredient(50);
+      const a = await createRecipeProduct([[shared.id, 20]]);
+      const b = await createRecipeProduct([[shared.id, 20]]);
+      const res = await request(app.getHttpServer())
+        .post('/orders')
+        .set(auth())
+        .send({ items: [{ productId: a.id, size: 'S', qty: 2 }, { productId: b.id, size: 'S', qty: 1 }] })
+        .expect(409);
+      expect(res.body.message).toContain('Không đủ');
+      expect(await ingredientStock(shared.id)).toBe(50);
+    });
+
+    it('chỉ nhân viên xem được trang Kho: tồn nguyên liệu và nguyên liệu hết trước của từng món', async () => {
+      const shared = await createIngredient(100);
+      const cup = await createIngredient(3, false);
+      const product = await createRecipeProduct([[shared.id, 20], [cup.id, 1]]);
+      await request(app.getHttpServer()).get('/ingredients').set(auth()).expect(403);
+
+      const res = await request(app.getHttpServer()).get('/ingredients').set(auth(staffToken)).expect(200);
+      const ingredient = res.body.ingredients.find((i: { id: number }) => i.id === shared.id);
+      expect(ingredient).toMatchObject({ stock: 100, unit: 'g', servings: 5, usedBy: [product.name] });
+      expect(ingredient).not.toHaveProperty('version');
+      expect(res.body.products.find((p: { id: number }) => p.id === product.id)).toMatchObject({
+        stock: 3,
+        limitedBy: cup.name,
+      });
+    });
+
+    it('nhân viên nhập thêm hàng: tồn nguyên liệu và số ly của món tăng theo', async () => {
+      const milk = await createIngredient(30);
+      const product = await createRecipeProduct([[milk.id, 20]]);
+      expect((await productStock(product.id)).stock).toBe(1);
+      const restock = (amount: unknown, t?: string, id = milk.id) =>
+        request(app.getHttpServer()).post(`/ingredients/${id}/restock`).set(auth(t)).send({ amount });
+
+      await restock(70).expect(403);
+      await restock(0, staffToken).expect(400);
+      await restock(1.5, staffToken).expect(400);
+      await restock(10, staffToken, 999999).expect(404);
+      expect(await ingredientStock(milk.id)).toBe(30);
+
+      const res = await restock(70, staffToken).expect(200);
+      expect(res.body).toMatchObject({ id: milk.id, stock: 100, unit: 'g' });
+      expect((await productStock(product.id)).stock).toBe(5);
+      await request(app.getHttpServer())
+        .post('/orders')
+        .set(auth())
+        .send({ items: [{ productId: product.id, size: 'S', qty: 5 }] })
+        .expect(201);
+      expect(await ingredientStock(milk.id)).toBe(0);
+    });
+  });
 });
