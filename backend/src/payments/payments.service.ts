@@ -11,6 +11,7 @@ import { assertTransition } from '../orders/order-state-machine';
 import { ORDER_INCLUDE, transitionOrder } from '../orders/orders.service';
 import { isUniqueViolation, PrismaService } from '../prisma/prisma.service';
 import { GatewayError, GatewayHttp, GatewayResult, PaymentGateway } from './gateways/gateway';
+import { MomoGateway } from './gateways/momo';
 import { VnpayGateway } from './gateways/vnpay';
 import { expireStalePaymentSessions, isSessionExpired, sessionExpiresAt } from './payment-session';
 import { CreatePaymentDto } from './payments.dto';
@@ -23,15 +24,14 @@ export const PROVIDER_NAME: Record<PaymentProvider, string> = { MOMO: 'MoMo', VN
 
 @Injectable()
 export class PaymentsService {
-  // Cổng nào chưa tích hợp thì chưa có trong danh sách
-  private readonly gateways: Partial<Record<PaymentProvider, PaymentGateway>>;
+  private readonly gateways: Record<PaymentProvider, PaymentGateway>;
   private readonly lastChecked = new Map<number, number>();
 
   constructor(
     private readonly prisma: PrismaService,
     http: GatewayHttp,
   ) {
-    this.gateways = { VNPAY: new VnpayGateway(http) };
+    this.gateways = { MOMO: new MomoGateway(http), VNPAY: new VnpayGateway(http) };
   }
 
   /**
@@ -93,9 +93,18 @@ export class PaymentsService {
     return this.findMine(userId, paymentId);
   }
 
+  /** IPN của MoMo (server MoMo gọi khi API có địa chỉ công khai). Sai chữ ký thì 400. */
+  async momoIpn(body: Record<string, unknown>) {
+    const result = this.gateways.MOMO.parseCallback(body);
+    if (!result) throw new BadRequestException('Chữ ký IPN không hợp lệ');
+    const payment = await this.prisma.payment.findUnique({ where: { gatewayOrderId: result.gatewayOrderId } });
+    if (!payment) throw new NotFoundException('Không tìm thấy giao dịch');
+    if (result.status !== 'PENDING') await this.settle(payment.id, result);
+  }
+
   /** IPN của VNPay: luôn trả HTTP 200 kèm RspCode theo tài liệu VNPay (01, 04, 97 thì VNPay gửi lại). */
   async vnpayIpn(query: Record<string, unknown>) {
-    const result = this.gateways.VNPAY!.parseCallback(query);
+    const result = this.gateways.VNPAY.parseCallback(query);
     if (!result) return { RspCode: '97', Message: 'Invalid signature' };
     const payment = await this.prisma.payment.findUnique({ where: { gatewayOrderId: result.gatewayOrderId } });
     if (!payment) return { RspCode: '01', Message: 'Order not found' };
@@ -234,9 +243,8 @@ export class PaymentsService {
   }
 
   private gatewayOf(payment: Payment): PaymentGateway {
-    const gateway = payment.provider && this.gateways[payment.provider];
-    if (!gateway || !payment.gatewayOrderId) throw new BadRequestException('Cổng thanh toán này chưa được hỗ trợ');
-    return gateway;
+    if (!payment.provider || !payment.gatewayOrderId) throw new BadRequestException('Giao dịch không qua cổng MoMo, VNPay');
+    return this.gateways[payment.provider];
   }
 
   /** Link sang cổng chỉ có khi phiên còn PROCESSING và chưa hết hạn. */
