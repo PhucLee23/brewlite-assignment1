@@ -518,7 +518,7 @@ describe('BrewLite – luồng đặt hàng và nghiệp vụ Task 10 (e2e)', ()
       expect(await statusOf(order.id)).toBe('PAID');
     });
 
-    it('cổng báo đã trừ tiền sau khi phiên hết hạn: đơn còn chờ thì PAID, đơn đã hủy vẫn ghi nhận giao dịch', async () => {
+    it('cổng báo đã trừ tiền sau khi phiên hết hạn: đơn còn chờ thì PAID, đơn đã tự hủy thì vào mục cần hoàn tiền', async () => {
       const waiting = await openSession('VNPAY');
       await prisma.$executeRaw`UPDATE "Payment" SET "createdAt" = now() - interval '6 minutes' WHERE id = ${waiting.payment.id}`;
       expect((await vnpayIpn(vnpayCallback(waiting.payment, 'SUCCESS'))).body.RspCode).toBe('00');
@@ -529,7 +529,87 @@ describe('BrewLite – luồng đặt hàng và nghiệp vụ Task 10 (e2e)', ()
       await request(app.getHttpServer()).post(`/orders/${cancelled.order.id}/cancel`).set(auth()).expect(200);
       expect((await vnpayIpn(vnpayCallback(cancelled.payment, 'SUCCESS'))).body.RspCode).toBe('00');
       expect(await statusOf(cancelled.order.id)).toBe('CANCELLED');
-      expect((await prisma.payment.findUniqueOrThrow({ where: { id: cancelled.payment.id } })).status).toBe('SUCCESS');
+      const revenue = (await request(app.getHttpServer()).get('/payments?status=REFUND_DUE').set(auth(staffToken)).expect(200)).body;
+      expect(revenue.payments.map((p: { id: number }) => p.id)).toContain(cancelled.payment.id);
+    });
+
+    it('biên lai: khách xem giao dịch của mình, nhân viên xem mọi giao dịch, người khác 404', async () => {
+      const product = await createProduct(10);
+      const order = (await placeOrder(product.id).expect(201)).body;
+      const session = await payAndConfirm(order.id);
+      const receipt = (await request(app.getHttpServer()).get(`/payments/${session.payment.id}/receipt`).set(auth()).expect(200)).body;
+      expect(receipt.payment).toMatchObject({ provider: 'VNPAY', state: 'SUCCESS', amount: order.total, bankCode: 'NCB' });
+      expect(receipt.payment.gatewayRef).toMatch(/^\d+$/);
+      expect(receipt.order).toMatchObject({ id: order.id, status: 'PAID', total: order.total });
+      expect(receipt.customer.email).toBe(customerEmail);
+      expect(receipt.gatewayResult).toMatchObject({ vnp_TransactionStatus: '00' });
+      await request(app.getHttpServer()).get(`/payments/${session.payment.id}/receipt`).set(auth(staffToken)).expect(200);
+
+      const other = await request(app.getHttpServer())
+        .post('/auth/register')
+        .send({ email: `khac-${uniq()}@test.vn`, password: 'matkhau123', fullName: 'Khách khác' })
+        .expect(201);
+      await request(app.getHttpServer()).get(`/payments/${session.payment.id}/receipt`).set(auth(other.body.accessToken)).expect(404);
+      // Trang đơn hàng có link tới biên lai
+      const detail = (await request(app.getHttpServer()).get(`/orders/${order.id}`).set(auth()).expect(200)).body;
+      expect(detail.payments).toEqual([{ id: session.payment.id, provider: 'VNPAY' }]);
+    });
+  });
+
+  describe('Trang Doanh thu của nhân viên (GET /payments)', () => {
+    type Row = { id: number; state: string; gatewayRef: string | null };
+    const revenue = (query = '', t = staffToken) => request(app.getHttpServer()).get(`/payments${query}`).set(auth(t));
+    const rowOf = (body: { payments: Row[] }, id: number) => body.payments.find((p) => p.id === id);
+
+    it('tiền chỉ được cộng khi cổng xác nhận SUCCESS, kèm cổng, mã giao dịch và ngân hàng', async () => {
+      const product = await createProduct(10);
+      const order = (await placeOrder(product.id).expect(201)).body;
+      const before = (await revenue().expect(200)).body.summary;
+      const session = (await pay(order.id, `pay-${uniq()}`).expect(201)).body;
+
+      const waiting = (await revenue('?status=PROCESSING').expect(200)).body;
+      expect(waiting.summary.received).toBe(before.received);
+      expect(rowOf(waiting, session.payment.id)).toMatchObject({ state: 'PROCESSING', gatewayRef: null, provider: 'VNPAY' });
+
+      const transId = gateways.resolve(session.payment, 'SUCCESS');
+      await vnpayIpn(vnpayCallback(session.payment, 'SUCCESS', transId));
+      const after = (await revenue('?status=SUCCESS').expect(200)).body;
+      expect(after.summary.received).toBe(before.received + order.total);
+      expect(after.summary.success).toBe(before.success + 1);
+      const row = rowOf(after, session.payment.id);
+      expect(row).toMatchObject({ state: 'SUCCESS', gatewayRef: transId, orderId: order.id, provider: 'VNPAY', bankCode: 'NCB' });
+      expect(row).toHaveProperty('order.user.email', customerEmail);
+      expect(row).toHaveProperty('confirmedAt', expect.any(String));
+    });
+
+    it('phiên khách bỏ dở quá 5 phút hiện là EXPIRED và không tính tiền', async () => {
+      const product = await createProduct(10);
+      const order = (await placeOrder(product.id).expect(201)).body;
+      const session = (await pay(order.id, `pay-${uniq()}`).expect(201)).body;
+      await prisma.$executeRaw`UPDATE "Payment" SET "createdAt" = now() - interval '6 minutes' WHERE id = ${session.payment.id}`;
+
+      expect(rowOf((await revenue('?status=EXPIRED').expect(200)).body, session.payment.id)).toMatchObject({ state: 'EXPIRED' });
+      expect(rowOf((await revenue('?status=PROCESSING').expect(200)).body, session.payment.id)).toBeUndefined();
+    });
+
+    it('đơn đã trả tiền bị hủy chuyển sang REFUND_DUE, không còn tính vào tiền đã vào', async () => {
+      const product = await createProduct(10);
+      const order = (await placeOrder(product.id).expect(201)).body;
+      const before = (await revenue().expect(200)).body.summary;
+      const session = await payAndConfirm(order.id);
+      await request(app.getHttpServer())
+        .patch(`/orders/${order.id}/status`)
+        .set(auth(staffToken))
+        .send({ status: 'CANCELLED' })
+        .expect(200);
+
+      const after = (await revenue('?status=REFUND_DUE').expect(200)).body;
+      expect(after.summary.received).toBe(before.received);
+      expect(after.summary.success).toBe(before.success);
+      expect(after.summary.refundDue).toBe(before.refundDue + 1);
+      expect(after.summary.refundDueAmount).toBe(before.refundDueAmount + order.total);
+      expect(rowOf(after, session.payment.id)).toMatchObject({ state: 'REFUND_DUE', order: { status: 'CANCELLED' } });
+      expect(rowOf((await revenue('?status=SUCCESS').expect(200)).body, session.payment.id)).toBeUndefined();
     });
   });
 

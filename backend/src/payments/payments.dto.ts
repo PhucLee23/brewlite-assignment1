@@ -1,5 +1,5 @@
 import { PaymentProvider } from '@prisma/client';
-import { IsEnum, IsInt, IsObject, IsOptional, IsString, Matches, Min } from 'class-validator';
+import { IsEnum, IsIn, IsInt, IsObject, IsOptional, IsString, Matches, Min } from 'class-validator';
 
 export class CreatePaymentDto {
   @IsInt()
@@ -22,3 +22,15 @@ export class ConfirmReturnDto {
   params!: Record<string, string>;
 }
 
+/**
+ * Trạng thái hiển thị trên trang Doanh thu: EXPIRED là phiên PROCESSING đã quá hạn,
+ * REFUND_DUE là giao dịch SUCCESS của đơn đã bị hủy (tiền đã vào, phải hoàn cho khách).
+ */
+export const PAYMENT_STATES = ['SUCCESS', 'REFUND_DUE', 'FAILED', 'PROCESSING', 'EXPIRED'] as const;
+export type PaymentState = (typeof PAYMENT_STATES)[number];
+
+export class ListPaymentsQueryDto {
+  @IsOptional()
+  @IsIn(PAYMENT_STATES, { message: `Trạng thái lọc phải là ${PAYMENT_STATES.join(', ')}` })
+  status?: PaymentState;
+}
