@@ -14,6 +14,7 @@ Route có 🔒 cần header `Authorization: Bearer <accessToken>`.
 | GET | `/auth/me` 🔒 | Thông tin + điểm thưởng | 401 |
 | GET | `/promotions/:code?subtotal=` | Kiểm tra trước mã giảm giá | 400 |
 | POST | `/orders` 🔒 | Tạo đơn `PENDING` (header `Idempotency-Key` tùy chọn) | 400, 401, 409 không đủ nguyên liệu |
+| GET | `/orders` 🔒 STAFF | Màn hình quầy: đơn theo nhóm `?status=PAID\|PREPARING\|READY\|COMPLETED\|CANCELLED` (mặc định `PAID`) kèm số đơn mỗi nhóm | 400, 403 |
 | GET | `/orders/me` 🔒 | Lịch sử đơn, mới nhất trước | 401 |
 | GET | `/orders/:id` 🔒 | Chi tiết đơn của chính mình | 404 |
 | POST | `/orders/:id/cancel` 🔒 | Khách hủy đơn **chưa pha** (`PENDING`, `PAYMENT_FAILED`, `PAID`), trả lại nguyên liệu; đơn đã `PAID` bị thu hồi điểm thưởng và giao dịch thành `REFUND_DUE` | 409 sai trạng thái hoặc đang thanh toán |
@@ -21,8 +22,10 @@ Route có 🔒 cần header `Authorization: Bearer <accessToken>`.
 | GET | `/ingredients` 🔒 STAFF | Trang Kho: tồn từng nguyên liệu và số ly còn bán được của từng món | 403 |
 | POST | `/ingredients/:id/restock` 🔒 STAFF | Nhập thêm hàng vào kho `{ "amount": 2000 }` | 400, 403, 404 |
 | POST | `/payments` 🔒 | Mở phiên thanh toán ở cổng **MoMo** hoặc **VNPay** (sandbox), trả về link sang trang thanh toán của cổng (header `Idempotency-Key` **bắt buộc**) | 400, 404, 409, 502 |
+| GET | `/payments` 🔒 STAFF | Trang Doanh thu: tổng tiền đã vào và 100 giao dịch gần nhất, lọc `?status=SUCCESS\|REFUND_DUE\|PROCESSING\|FAILED\|EXPIRED` (chỉ đọc) | 400, 403 |
 | GET | `/payments/:id` 🔒 | Trạng thái phiên thanh toán của chính mình; phiên còn mở thì backend tự tra cứu cổng | 404 |
 | POST | `/payments/:id/return` 🔒 | Trang BrewLite gửi lên kết quả cổng gắn vào link khi chuyển khách về; backend kiểm tra chữ ký rồi tra cứu lại cổng | 400, 404 |
+| GET | `/payments/:id/receipt` 🔒 | Biên lai giao dịch (khách xem của mình, nhân viên xem tất cả) | 404 |
 | POST | `/payments/momo/ipn` | IPN của MoMo (server → server, ký HMAC-SHA256, không dùng JWT) → 204 | 400, 404 |
 | GET | `/payments/vnpay/ipn` | IPN của VNPay (server → server, ký HMAC-SHA512) → 200 kèm `RspCode` | |
 
@@ -134,6 +137,59 @@ Idempotency-Key: 0b7e9d4c-5f21-4e3a-8c6d-9a1b2c3d4e5f
   - `payType`: hình thức (MoMo `napas`/`qr`/`credit`, VNPay `ATM`).
   - `confirmedAt`: thời điểm xác nhận.
   - `gatewayResult`: nguyên văn dữ liệu cổng gửi về, có chữ ký.
+
+### GET /payments/:id/receipt
+
+→ `200 { "payment": { …, "state": "SUCCESS" }, "order": { …, "items": [ … ] }, "customer": { "fullName", "email" }, "gatewayResult": { … } }`
+
+Trang `/payments/:id/receipt` hiện biên lai theo màu của cổng, có nút *In / Lưu PDF*. Khách chỉ xem được giao dịch của mình (người khác → 404); nhân viên xem mọi giao dịch từ trang Doanh thu.
+
+### GET /payments (nhân viên)
+
+→ `200`
+
+```json
+{
+  "summary": {
+    "received": 1250000, "success": 24, "refundDue": 1, "refundDueAmount": 45000,
+    "failed": 3, "processing": 1, "expired": 2
+  },
+  "payments": [
+    {
+      "id": 7, "orderId": 1042, "amount": 51300, "provider": "VNPAY",
+      "status": "SUCCESS", "state": "SUCCESS", "gatewayOrderId": "BLMVQGKPK11F0B76C8",
+      "gatewayRef": "15716332", "bankCode": "NCB", "payType": null, "confirmedAt": "…", "createdAt": "…",
+      "order": { "status": "PAID", "user": { "fullName": "Nguyễn Văn A", "email": "khach@brewlite.vn" } }
+    }
+  ]
+}
+```
+
+- `received` chỉ cộng các giao dịch `SUCCESS` của đơn **không bị hủy**, tức là cổng MoMo hoặc VNPay đã xác nhận thành công và quầy giữ tiền.
+- `state` là trạng thái để hiển thị:
+  - `EXPIRED`: phiên còn `PROCESSING` nhưng đã quá 5 phút (khách bỏ dở, không có tiền vào).
+  - `REFUND_DUE`: giao dịch `SUCCESS` nhưng đơn đã bị hủy (khách hoặc nhân viên hủy). Tiền đã vào, quầy phải hoàn cho khách. `refundDue` và `refundDueAmount` là số giao dịch và số tiền cần hoàn.
+- Chỉ tài khoản `STAFF` gọi được (khách → 403). API này chỉ đọc, không sửa hay hoàn tiền giao dịch.
+
+### GET /orders?status=PAID (nhân viên)
+
+→ `200`
+
+```json
+{
+  "counts": { "PAID": 2, "PREPARING": 1, "READY": 0, "COMPLETED": 18, "CANCELLED": 4 },
+  "orders": [
+    {
+      "id": 1042, "status": "PAID", "total": 51300, "createdAt": "…",
+      "items": [{ "productName": "Cappuccino", "size": "M", "toppings": ["Trân châu"], "qty": 1, "…": "…" }],
+      "user": { "fullName": "Nguyễn Văn A" }
+    }
+  ]
+}
+```
+
+- Chỉ đơn đã thanh toán mới lên quầy. Ba nhóm `PAID`, `PREPARING`, `READY` là hàng chờ: đơn đặt trước xếp trước. `COMPLETED` và `CANCELLED` xếp mới nhất trước. Mỗi nhóm trả tối đa 100 đơn.
+- Nhân viên bấm nút trên trang `/admin/orders`, frontend gọi `PATCH /orders/:id/status`: *Nhận đơn* (`PREPARING`), *Pha xong* (`READY`), *Đã giao khách* (`COMPLETED`), *Hủy đơn* (`CANCELLED`, chỉ khi đơn còn `PAID`).
 
 ### GET /ingredients (nhân viên)
 
