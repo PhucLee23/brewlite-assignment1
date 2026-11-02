@@ -19,6 +19,7 @@ export default function Header() {
 
   const navClass = (active: boolean) => (active ? `${NAV_LINK} ${NAV_ACTIVE}` : NAV_LINK);
   const onMenu = pathname === "/" || pathname.startsWith("/products");
+  const onOrders = pathname.startsWith("/orders");
   const onCart = pathname === "/cart";
 
   return (
@@ -40,6 +41,15 @@ export default function Header() {
           >
             Menu
           </Link>
+          {hydrated && user && (
+            <Link
+              href="/orders"
+              className={navClass(onOrders)}
+              aria-current={onOrders ? "page" : undefined}
+            >
+              Đơn hàng
+            </Link>
+          )}
           <Link
             href="/cart"
             className={`relative ${navClass(onCart)}`}
