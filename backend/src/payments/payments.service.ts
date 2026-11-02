@@ -5,7 +5,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Order, Payment, PaymentProvider, Prisma } from '@prisma/client';
+import { Order, Payment, PaymentProvider, Prisma, Role } from '@prisma/client';
 import { randomBytes } from 'crypto';
 import { assertTransition } from '../orders/order-state-machine';
 import { ORDER_INCLUDE, transitionOrder } from '../orders/orders.service';
@@ -14,10 +14,12 @@ import { isUniqueViolation, PrismaService } from '../prisma/prisma.service';
 import { GatewayError, GatewayHttp, GatewayResult, PaymentGateway } from './gateways/gateway';
 import { MomoGateway } from './gateways/momo';
 import { VnpayGateway } from './gateways/vnpay';
-import { expireStalePaymentSessions, isSessionExpired, sessionExpiresAt } from './payment-session';
-import { CreatePaymentDto } from './payments.dto';
+import { expireStalePaymentSessions, isSessionExpired, PAYMENT_SESSION_TTL_MS, sessionExpiresAt } from './payment-session';
+import { CreatePaymentDto, PaymentState } from './payments.dto';
 
 const TX_OPTIONS = { maxWait: 10_000, timeout: 20_000 };
+/** Trang Doanh thu chỉ hiện chừng này giao dịch mới nhất; số tổng vẫn tính trên toàn bộ. */
+const REVENUE_PAGE_SIZE = 100;
 /** Trang chờ thanh toán hỏi mỗi 1,5 giây, nhưng backend chỉ tra cứu cổng tối đa mỗi chừng này một lần. */
 const GATEWAY_CHECK_INTERVAL_MS = 4_000;
 
@@ -112,6 +114,75 @@ export class PaymentsService {
     if (payment.amount !== result.amount) return { RspCode: '04', Message: 'invalid amount' };
     const { duplicate } = await this.settle(payment.id, result);
     return duplicate ? { RspCode: '02', Message: 'Order already confirmed' } : { RspCode: '00', Message: 'Confirm Success' };
+  }
+
+  /** Biên lai: khách xem giao dịch của mình, nhân viên xem mọi giao dịch. */
+  async receipt(user: { id: number; role: Role }, paymentId: number) {
+    const payment = await this.prisma.payment.findUnique({
+      where: { id: paymentId },
+      include: { order: { include: { ...ORDER_INCLUDE, user: { select: { fullName: true, email: true } } } } },
+    });
+    if (!payment || (user.role !== 'STAFF' && payment.order.userId !== user.id)) {
+      throw new NotFoundException('Không tìm thấy giao dịch');
+    }
+    const { order, gatewayResult, idempotencyKey, payUrl, ...info } = payment;
+    const { user: customer, ...orderInfo } = order;
+    const cutoff = new Date(Date.now() - PAYMENT_SESSION_TTL_MS);
+    return { payment: { ...info, state: displayState(payment, cutoff) }, order: orderInfo, customer, gatewayResult };
+  }
+
+  /**
+   * Trang Doanh thu: tiền chỉ được tính khi cổng đã xác nhận SUCCESS.
+   * Phiên PROCESSING quá hạn được tách riêng thành EXPIRED (khách bỏ dở, không có tiền vào).
+   * Giao dịch SUCCESS của đơn đã hủy là REFUND_DUE: không tính vào tiền đã vào, nhân viên phải hoàn cho khách.
+   */
+  async listAll(state?: PaymentState) {
+    const cutoff = new Date(Date.now() - PAYMENT_SESSION_TTL_MS);
+    const where: Record<PaymentState, Prisma.PaymentWhereInput> = {
+      SUCCESS: { status: 'SUCCESS', order: { status: { not: 'CANCELLED' } } },
+      REFUND_DUE: { status: 'SUCCESS', order: { status: 'CANCELLED' } },
+      FAILED: { status: 'FAILED' },
+      PROCESSING: { status: 'PROCESSING', createdAt: { gt: cutoff } },
+      EXPIRED: { status: 'PROCESSING', createdAt: { lte: cutoff } },
+    };
+    const [received, refundDue, failed, processing, expired, payments] = await Promise.all([
+      this.prisma.payment.aggregate({ where: where.SUCCESS, _sum: { amount: true }, _count: true }),
+      this.prisma.payment.aggregate({ where: where.REFUND_DUE, _sum: { amount: true }, _count: true }),
+      this.prisma.payment.count({ where: where.FAILED }),
+      this.prisma.payment.count({ where: where.PROCESSING }),
+      this.prisma.payment.count({ where: where.EXPIRED }),
+      this.prisma.payment.findMany({
+        where: state ? where[state] : undefined,
+        orderBy: { id: 'desc' },
+        take: REVENUE_PAGE_SIZE,
+        select: {
+          id: true,
+          orderId: true,
+          amount: true,
+          provider: true,
+          status: true,
+          gatewayOrderId: true,
+          gatewayRef: true,
+          bankCode: true,
+          payType: true,
+          confirmedAt: true,
+          createdAt: true,
+          order: { select: { status: true, user: { select: { fullName: true, email: true } } } },
+        },
+      }),
+    ]);
+    return {
+      summary: {
+        received: received._sum.amount ?? 0,
+        success: received._count,
+        refundDue: refundDue._count,
+        refundDueAmount: refundDue._sum.amount ?? 0,
+        failed,
+        processing,
+        expired,
+      },
+      payments: payments.map((p) => ({ ...p, state: displayState(p, cutoff) })),
+    };
   }
 
   /**
@@ -279,4 +350,14 @@ function newGatewayOrderId() {
 function returnOrigin(requested?: string) {
   const allowed = (process.env.FRONTEND_URL ?? 'http://localhost:3000').split(',').map((s) => s.trim());
   return requested && allowed.includes(requested) ? requested : allowed[0];
+}
+
+/** Trạng thái hiển thị của một giao dịch, cùng cách chia với bộ lọc trên trang Doanh thu. */
+function displayState(
+  p: { status: Payment['status']; createdAt: Date; order: { status: Order['status'] } },
+  cutoff: Date,
+): PaymentState {
+  if (p.status === 'PROCESSING') return p.createdAt <= cutoff ? 'EXPIRED' : 'PROCESSING';
+  if (p.status === 'SUCCESS' && p.order.status === 'CANCELLED') return 'REFUND_DUE';
+  return p.status;
 }

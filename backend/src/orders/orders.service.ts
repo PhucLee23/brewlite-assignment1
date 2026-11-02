@@ -7,8 +7,10 @@ import { assertTransition } from './order-state-machine';
 import { COUNTER_QUEUE, COUNTER_STATUSES, CounterStatus, CreateOrderDto } from './orders.dto';
 import { evaluatePromotion, loyaltyPointsFor, unitPrice } from './pricing';
 
+// Kèm giao dịch đã thanh toán thành công để trang đơn có link tới biên lai
 export const ORDER_INCLUDE = {
   items: { orderBy: { id: 'asc' } },
+  payments: { where: { status: 'SUCCESS' }, select: { id: true, provider: true }, orderBy: { id: 'desc' } },
 } satisfies Prisma.OrderInclude;
 
 /** Số lần thử lại khi optimistic lock bị tranh chấp. Mỗi lần thất bại nghĩa là một giao dịch khác đã thành công. */

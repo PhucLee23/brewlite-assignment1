@@ -1,8 +1,8 @@
 import { Body, Controller, Get, Headers, HttpCode, Ip, Param, ParseIntPipe, Post, Query, UseGuards } from '@nestjs/common';
 import { AuthUser } from '../auth/auth.types';
-import { CurrentUser, JwtAuthGuard } from '../auth/guards';
+import { CurrentUser, JwtAuthGuard, Roles, RolesGuard } from '../auth/guards';
 import { parseIdempotencyKey } from '../common/idempotency';
-import { ConfirmReturnDto, CreatePaymentDto } from './payments.dto';
+import { ConfirmReturnDto, CreatePaymentDto, ListPaymentsQueryDto } from './payments.dto';
 import { PaymentsService } from './payments.service';
 
 @Controller('payments')
@@ -19,6 +19,14 @@ export class PaymentsController {
     @Ip() ip: string,
   ) {
     return this.payments.pay(user.id, dto, parseIdempotencyKey(key, true), ipv4(ip));
+  }
+
+  /** Trang Doanh thu của nhân viên: tổng tiền đã vào và các giao dịch gần nhất. Chỉ đọc. */
+  @Get()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('STAFF')
+  listAll(@Query() query: ListPaymentsQueryDto) {
+    return this.payments.listAll(query.status);
   }
 
   /** IPN của MoMo (server gọi server, xác thực bằng chữ ký trong body). MoMo cần HTTP 204. */
@@ -46,6 +54,13 @@ export class PaymentsController {
   @UseGuards(JwtAuthGuard)
   confirmReturn(@CurrentUser() user: AuthUser, @Param('id', ParseIntPipe) id: number, @Body() dto: ConfirmReturnDto) {
     return this.payments.confirmReturn(user.id, id, dto.params);
+  }
+
+  /** Biên lai giao dịch: khách xem của mình, nhân viên xem tất cả. */
+  @Get(':id/receipt')
+  @UseGuards(JwtAuthGuard)
+  receipt(@CurrentUser() user: AuthUser, @Param('id', ParseIntPipe) id: number) {
+    return this.payments.receipt(user, id);
   }
 }
 
