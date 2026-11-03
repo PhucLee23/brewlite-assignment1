@@ -125,6 +125,33 @@ export interface Receipt {
  */
 export type PaymentState = "SUCCESS" | "REFUND_DUE" | "FAILED" | "PROCESSING" | "EXPIRED";
 
+/** Kết quả GET /payments (chỉ nhân viên). */
+export interface RevenueReport {
+  summary: {
+    received: number;
+    success: number;
+    refundDue: number;
+    refundDueAmount: number;
+    failed: number;
+    processing: number;
+    expired: number;
+  };
+  payments: {
+    id: number;
+    orderId: number;
+    amount: number;
+    provider: PaymentProvider | null;
+    state: PaymentState;
+    gatewayOrderId: string | null;
+    gatewayRef: string | null;
+    bankCode: string | null;
+    payType: string | null;
+    confirmedAt: string | null;
+    createdAt: string;
+    order: { status: OrderStatus; user: { fullName: string; email: string } };
+  }[];
+}
+
 export type PromotionCheck =
   | { valid: true; code: string; percentOff: number; discount: number }
   | { valid: false; reason: string };
