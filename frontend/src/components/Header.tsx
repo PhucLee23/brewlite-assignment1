@@ -21,6 +21,8 @@ export default function Header() {
   const onMenu = pathname === "/" || pathname.startsWith("/products");
   const onOrders = pathname.startsWith("/orders");
   const onCart = pathname === "/cart";
+  const onStock = pathname.startsWith("/admin/ingredients");
+  const isStaff = user?.role === "STAFF";
 
   return (
     <header className="sticky top-0 z-10 border-b border-latte bg-foam/95 backdrop-blur print:hidden">
@@ -34,9 +36,10 @@ export default function Header() {
         </Link>
 
         <nav className="flex items-center gap-1 whitespace-nowrap text-sm sm:gap-3">
+          {/* Màn hình hẹp không đủ chỗ: nhân viên thấy Kho thay cho Menu (bấm logo vẫn về Menu), Đơn hàng và Giỏ hàng */}
           <Link
             href="/"
-            className={navClass(onMenu)}
+            className={`${navClass(onMenu)} ${hydrated && isStaff ? "max-sm:hidden" : ""}`}
             aria-current={onMenu ? "page" : undefined}
           >
             Menu
@@ -44,15 +47,20 @@ export default function Header() {
           {hydrated && user && (
             <Link
               href="/orders"
-              className={navClass(onOrders)}
+              className={`${navClass(onOrders)} ${isStaff ? "max-sm:hidden" : ""}`}
               aria-current={onOrders ? "page" : undefined}
             >
               Đơn hàng
             </Link>
           )}
+          {hydrated && isStaff && (
+            <Link href="/admin/ingredients" className={`${navClass(onStock)} max-sm:px-1.5`} aria-current={onStock ? "page" : undefined}>
+              Kho
+            </Link>
+          )}
           <Link
             href="/cart"
-            className={`relative ${navClass(onCart)}`}
+            className={`relative ${navClass(onCart)} ${hydrated && isStaff ? "max-sm:hidden" : ""}`}
             aria-current={onCart ? "page" : undefined}
             aria-label={`Giỏ hàng, ${hydrated ? count : 0} món`}
           >

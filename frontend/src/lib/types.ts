@@ -34,6 +34,20 @@ export interface ProductDetail extends Product {
   toppings: Topping[];
 }
 
+/** Kết quả GET /ingredients (chỉ nhân viên). */
+export interface InventoryReport {
+  ingredients: {
+    id: number;
+    name: string;
+    unit: string;
+    stock: number;
+    usedBy: string[];
+    /** Đủ cho bao nhiêu phần của món tốn nguyên liệu này nhất; null khi chưa món nào dùng. */
+    servings: number | null;
+  }[];
+  products: { id: number; name: string; stock: number; limitedBy: string | null }[];
+}
+
 export interface User {
   id: number;
   email: string;
