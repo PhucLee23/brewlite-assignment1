@@ -21,6 +21,7 @@ export default function Header() {
   const onMenu = pathname === "/" || pathname.startsWith("/products");
   const onOrders = pathname.startsWith("/orders");
   const onCart = pathname === "/cart";
+  const onCounter = pathname.startsWith("/admin/orders");
   const onRevenue = pathname.startsWith("/admin/revenue");
   const onStock = pathname.startsWith("/admin/ingredients");
   const isStaff = user?.role === "STAFF";
@@ -37,7 +38,7 @@ export default function Header() {
         </Link>
 
         <nav className="flex items-center gap-1 whitespace-nowrap text-sm sm:gap-3">
-          {/* Màn hình hẹp không đủ chỗ: nhân viên thấy Kho, Doanh thu thay cho Menu (bấm logo vẫn về Menu), Đơn hàng và Giỏ hàng */}
+          {/* Màn hình hẹp không đủ chỗ: nhân viên thấy Quầy, Kho, Doanh thu thay cho Menu (bấm logo vẫn về Menu), Đơn hàng và Giỏ hàng */}
           <Link
             href="/"
             className={`${navClass(onMenu)} ${hydrated && isStaff ? "max-sm:hidden" : ""}`}
@@ -56,6 +57,9 @@ export default function Header() {
           )}
           {hydrated && isStaff && (
             <>
+              <Link href="/admin/orders" className={`${navClass(onCounter)} max-sm:px-1.5`} aria-current={onCounter ? "page" : undefined}>
+                Quầy
+              </Link>
               <Link href="/admin/ingredients" className={`${navClass(onStock)} max-sm:px-1.5`} aria-current={onStock ? "page" : undefined}>
                 Kho
               </Link>

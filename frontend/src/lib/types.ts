@@ -152,6 +152,15 @@ export interface RevenueReport {
   }[];
 }
 
+/** Nhóm đơn trên màn hình quầy; ba nhóm đầu là hàng chờ nhân viên phải xử lý. */
+export type CounterStatus = "PAID" | "PREPARING" | "READY" | "COMPLETED" | "CANCELLED";
+
+/** Kết quả GET /orders?status= (chỉ nhân viên). */
+export interface CounterReport {
+  counts: Record<CounterStatus, number>;
+  orders: (Order & { user: { fullName: string } })[];
+}
+
 export type PromotionCheck =
   | { valid: true; code: string; percentOff: number; discount: number }
   | { valid: false; reason: string };
