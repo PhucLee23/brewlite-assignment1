@@ -561,6 +561,12 @@ describe('BrewLite – luồng đặt hàng và nghiệp vụ Task 10 (e2e)', ()
     const revenue = (query = '', t = staffToken) => request(app.getHttpServer()).get(`/payments${query}`).set(auth(t));
     const rowOf = (body: { payments: Row[] }, id: number) => body.payments.find((p) => p.id === id);
 
+    it('chỉ nhân viên xem được: khách 403, chưa đăng nhập 401, lọc sai trạng thái 400', async () => {
+      await revenue('', token).expect(403);
+      await request(app.getHttpServer()).get('/payments').expect(401);
+      await revenue('?status=PAID').expect(400);
+    });
+
     it('tiền chỉ được cộng khi cổng xác nhận SUCCESS, kèm cổng, mã giao dịch và ngân hàng', async () => {
       const product = await createProduct(10);
       const order = (await placeOrder(product.id).expect(201)).body;
@@ -617,6 +623,12 @@ describe('BrewLite – luồng đặt hàng và nghiệp vụ Task 10 (e2e)', ()
     type CounterRow = { id: number; status: string; user: { fullName: string }; items: unknown[] };
     const counter = (query = '', t = staffToken) => request(app.getHttpServer()).get(`/orders${query}`).set(auth(t));
     const idsOf = (body: { orders: CounterRow[] }) => body.orders.map((o) => o.id);
+
+    it('chỉ nhân viên xem được: khách 403, chưa đăng nhập 401, lọc sai trạng thái 400', async () => {
+      await counter('', token).expect(403);
+      await request(app.getHttpServer()).get('/orders').expect(401);
+      await counter('?status=PENDING').expect(400);
+    });
 
     it('đơn đã thanh toán vào hàng chờ theo thứ tự trả tiền và đi qua từng nhóm khi nhân viên bấm', async () => {
       // CSDL test giữ dữ liệu giữa các lần chạy: đóng hàng chờ cũ để hàng chờ (xếp cũ trước) bắt đầu từ đơn của test này
