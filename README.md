@@ -2,24 +2,52 @@
 
 Bài tập lớn môn Công nghệ Phần mềm (Trường Đại học Sài Gòn, học kỳ I năm học 2026–2027).
 
-Khách chọn đồ uống (size, topping), thêm vào giỏ, đăng nhập rồi thanh toán không tiền mặt, nhận mã đơn và theo dõi lịch sử đơn. Nhóm 6 người làm theo Scrum, 3 Sprint.
+Khách chọn đồ uống (size, topping), thêm vào giỏ, đăng nhập rồi thanh toán qua cổng **MoMo** hoặc **VNPay** (môi trường sandbox của bên thứ ba), nhận biên lai có mã giao dịch của cổng. Sau đó khách nhận mã đơn và theo dõi lịch sử đơn.
 
 | Thành phần | Công nghệ |
 | --- | --- |
-| Frontend | Next.js 15 (App Router, TypeScript), TailwindCSS 4, Zustand, TanStack React Query |
+| Frontend | Next.js 15 (App Router, TypeScript), TailwindCSS 4, Zustand (giỏ hàng, phiên đăng nhập), TanStack React Query |
 | Backend | NestJS 11 (TypeScript), REST, class-validator, JWT (Passport), bcrypt |
 | CSDL | PostgreSQL 16 + Prisma 6 |
+| Thanh toán | MoMo và VNPay, môi trường sandbox (thử nghiệm, không trừ tiền thật) |
 | DevOps | Docker Compose, Git |
 
 ## Cấu trúc
 
 ```
-brewlite-assignment1/
-├── backend/      NestJS API (cổng 4000)
-├── frontend/     Next.js (cổng 3000)
-├── docs/         hợp đồng API, tài liệu Scrum
-└── docker-compose.yml
+BrewLite/
+├── backend/            NestJS API (cổng 4000)
+│   ├── prisma/         schema.prisma, migrations/, seed.ts
+│   ├── src/
+│   │   ├── auth/       đăng ký, đăng nhập, JwtStrategy, JwtAuthGuard, RolesGuard
+│   │   ├── products/   GET /products, GET /products/:id (số ly còn tính từ nguyên liệu)
+│   │   ├── ingredients/ công thức, tính số ly còn, trang Kho và nhập kho
+│   │   ├── orders/     tạo đơn, state machine, trừ nguyên liệu, khuyến mãi
+│   │   ├── payments/   mở phiên ở MoMo/VNPay (gateways/), xác nhận kết quả có chữ ký, IPN, biên lai, GET /payments (doanh thu)
+│   │   └── promotions/ kiểm tra mã giảm giá
+│   └── test/           test tích hợp (e2e) cho Task 10
+├── frontend/           Next.js (cổng 3000)
+│   └── src/app/        menu, products/[id], cart, checkout, payments/[id] (chờ kết quả cổng), payments/[id]/receipt (biên lai), orders, admin/orders (quầy), admin/ingredients (kho), admin/revenue, login, register
+├── docs/api.md         hợp đồng API
+└── docker-compose.yml  db + backend + frontend
 ```
+
+## Chạy nhanh bằng Docker (1 lệnh)
+
+Yêu cầu: Docker Desktop và Internet (để thanh toán qua sandbox MoMo, VNPay).
+
+```bash
+cp .env.example .env     # điền khóa VNPay sandbox (xem mục Cổng thanh toán sandbox)
+docker compose up -d --build
+```
+
+| Dịch vụ | Địa chỉ |
+| --- | --- |
+| Web | http://localhost:3000 |
+| API | http://localhost:4000 |
+| PostgreSQL | localhost:5432 (user/pass/db: `brewlite`) |
+
+Backend tự chạy migration và nạp dữ liệu mẫu khi khởi động. Dừng hệ thống bằng `docker compose down`; thêm `-v` nếu muốn xóa luôn dữ liệu.
 
 ## Chạy ở chế độ phát triển
 
@@ -33,7 +61,8 @@ docker compose up -d db
 cd backend
 cp .env.example .env
 npm install
-npx prisma migrate dev
+npx prisma migrate dev      # tạo bảng
+npm run seed                # dữ liệu mẫu
 npm run start:dev
 
 # 3. Frontend – http://localhost:3000 (terminal khác)
@@ -43,6 +72,154 @@ npm install
 npm run dev
 ```
 
-## Quy trình nhóm
+> Với npm 11, nếu thấy cảnh báo "install scripts not yet covered by allowScripts", các gói Prisma đã được cho phép sẵn trong `backend/package.json`, nên không cần làm gì thêm.
 
-Mỗi hạng mục làm trên một nhánh riêng, mở Pull Request và được review chéo trước khi merge vào `main`. Chi tiết: [docs/scrum/huong-dan-git.md](docs/scrum/huong-dan-git.md).
+## Cổng thanh toán sandbox
+
+BrewLite không tự quyết đơn đã được trả tiền: khách trả trên trang của **MoMo** hoặc **VNPay** (môi trường thử nghiệm của bên thứ ba), và đơn chỉ sang `PAID` khi cổng xác nhận bằng kết quả có chữ ký.
+
+**VNPay** (mỗi người hoặc cả nhóm dùng chung một tài khoản):
+1. Đăng ký merchant test ở https://sandbox.vnpayment.vn/devreg/ (ô *Địa chỉ URL* điền tên miền chưa ai đăng ký, ví dụ `https://<tài-khoản-github>.github.io`).
+2. VNPay gửi email gồm mã website (`vnp_TmnCode`), chuỗi bí mật (`vnp_HashSecret`), tài khoản trang quản trị merchant (https://sandbox.vnpayment.vn/merchantv2/) và thẻ test.
+3. Điền vào `.env` ở thư mục gốc (Docker) và `backend/.env` (chạy dev):
+
+```env
+VNPAY_TMN_CODE=<mã website>
+VNPAY_HASH_SECRET=<chuỗi bí mật>
+```
+
+Hai file này nằm trong `.gitignore`. **Không commit chuỗi bí mật**: ai có nó thì ký được kết quả "đã thanh toán" giả nhân danh BrewLite.
+
+**MoMo**: không cần đăng ký. Để trống các biến `MOMO_*` thì backend dùng bộ khóa test MoMo công bố công khai trong code mẫu chính thức (https://github.com/momo-wallet/payment).
+
+**Thẻ thử nghiệm** (hiện cả trong mục *Thông tin thẻ thử nghiệm* ở trang Thanh toán):
+
+| Cổng | Cách trả |
+| --- | --- |
+| VNPay | *Thẻ nội địa và tài khoản ngân hàng* → **NCB**, số thẻ `9704198526191432198`, tên `NGUYEN VAN A`, ngày phát hành `07/15`, OTP `123456` |
+| MoMo | *Thanh toán bằng thẻ ATM*, số thẻ `9704000000000018`, ngày phát hành `03/07`, tên `NGUYEN VAN A`, số điện thoại bất kỳ, OTP `OTP`. Hoặc cài app MoMo bản test để quét mã |
+
+**Xác nhận kết quả khi chạy trên máy cá nhân:** MoMo, VNPay báo kết quả qua IPN (server gọi server), nhưng IPN đi từ Internet nên không tới được `localhost`. Vì vậy:
+- Khi cổng chuyển khách về BrewLite, backend kiểm tra chữ ký trên link rồi **gọi API tra cứu giao dịch** của cổng.
+- Trang chờ cũng tự tra cứu, nên khách trả bằng app trên điện thoại thì máy tính vẫn cập nhật.
+- Endpoint IPN có sẵn (`/payments/momo/ipn`, `/payments/vnpay/ipn`) cho lúc API có địa chỉ công khai.
+
+## Dữ liệu mẫu
+
+| Loại | Giá trị |
+| --- | --- |
+| Tài khoản khách | `khach@brewlite.vn` / `123456` |
+| Tài khoản barista (STAFF) | `barista@brewlite.vn` / `123456` (có thêm trang *Quầy*, *Kho* và *Doanh thu*) |
+| Mã giảm giá | `BREW10` (−10%, đơn từ 50.000đ), `WELCOME20` (−20%, đơn từ 100.000đ), `HETHAN` (đã hết hạn, dùng để demo lỗi) |
+| Món ít hàng | Cold brew chỉ đủ nguyên liệu cho 5 ly size S (4 ly size M, 3 ly size L), dùng để demo kiểm soát tồn kho |
+| Nguyên liệu | 20 nguyên liệu, công thức cho 15 món và 4 topping trong [seed.ts](backend/prisma/seed.ts) |
+
+## Xem cơ sở dữ liệu
+
+CSDL chạy trong Docker, nên cần chạy `docker compose up -d` trước.
+
+- **Prisma Studio (Windows):** bấm đúp file `xem-database.bat` ở thư mục gốc, rồi mở http://localhost:5555. Máy khác chạy `cd backend && npx prisma studio`.
+- **VS Code, Antigravity, Cursor:** mở thư mục dự án, cài extension **Database Client** (`cweijan.vscode-database-client2`) theo gợi ý của editor, rồi thêm kết nối PostgreSQL một lần:
+
+| Mục | Giá trị |
+| --- | --- |
+| Server | `localhost` |
+| Port | `5432` |
+| Database | `brewlite` |
+| User / Password | `brewlite` / `brewlite` |
+
+Các bảng: `Product`, `Topping`, `Ingredient`, `ProductIngredient` (công thức món), `ToppingIngredient` (công thức topping), `Promotion`, `User`, `Order`, `OrderItem`, `OrderIngredient` (nguyên liệu đã trừ của đơn), `Payment`. Tên bảng có chữ hoa nên khi viết SQL phải đặt trong ngoặc kép, ví dụ `SELECT * FROM "Product";`.
+
+## Kiểm thử
+
+```bash
+cd backend
+npm test             # unit test: state machine, tính giá, khuyến mãi
+npm run test:e2e     # test tích hợp với PostgreSQL thật (CSDL riêng brewlite_test)
+```
+
+`test:e2e` cần PostgreSQL đang chạy (`docker compose up -d db`). Test tự tạo CSDL `brewlite_test` và áp migration, không đụng vào dữ liệu demo.
+
+Ba tiêu chí chấm của Task 10 nằm trong [backend/test/order-flow.e2e-spec.ts](backend/test/order-flow.e2e-spec.ts):
+
+| Tiêu chí | Test |
+| --- | --- |
+| (a) Chặn chuyển trạng thái sai | `(a) Order State Machine…`, cùng với unit test [order-state-machine.spec.ts](backend/src/orders/order-state-machine.spec.ts) |
+| (b) 2 lần cùng Idempotency-Key chỉ tạo 1 đơn | `(b) Idempotency-Key…`: gửi tuần tự, gửi 5 request song song, mở phiên thanh toán lặp chỉ có 1 phiên (chỉ gọi MoMo tạo giao dịch 1 lần), cổng báo kết quả lặp (IPN song song, khách quay về cùng lúc) chỉ cộng điểm 1 lần |
+| (c) Đặt đồng thời không vượt tồn kho | `(c) Đặt hàng đồng thời…`: 10 request cùng lúc vào món chỉ còn 3 ly → đúng 3 đơn thành công; 10 request vào 2 món dùng chung nguyên liệu chỉ đủ 3 ly → đúng 3 đơn |
+
+Nhóm `Thanh toán qua cổng MoMo, VNPay` dùng cổng giả trong [fake-gateways.ts](backend/test/fake-gateways.ts) (ký đúng như cổng thật, không gọi Internet). Nhóm này kiểm tra:
+- Link VNPay có chữ ký đúng số tiền và hạn 5 phút; MoMo từ chối tạo giao dịch thì 502.
+- Kết quả quay về sai chữ ký, của giao dịch khác hoặc bị sửa số tiền thì bị từ chối.
+- Backend tra cứu lại cổng trước khi chuyển `PAID`; trang chờ tự tra cứu khi khách trả bằng app.
+- IPN VNPay trả đủ các mã `97/01/04/00/02`; IPN MoMo sai chữ ký bị 400.
+- Khách bấm hủy trên cổng rồi thanh toán lại bằng cổng khác.
+- Cổng báo đã trừ tiền sau khi phiên hết hạn.
+- Biên lai chỉ chủ đơn và nhân viên xem được.
+
+Unit test [gateways.spec.ts](backend/src/payments/gateways/gateways.spec.ts) kiểm tra chữ ký với kết quả thật sandbox MoMo đã trả về.
+
+Nhóm `Trang Doanh thu của nhân viên` kiểm tra tiền chỉ được cộng khi cổng xác nhận thành công, lưu cổng, mã giao dịch và ngân hàng, phiên bỏ dở hiện là hết hạn, đơn đã trả tiền bị hủy chuyển sang *Cần hoàn tiền* và không còn tính vào tiền đã vào, khách gọi API bị 403.
+
+Nhóm `Tồn kho theo nguyên liệu và công thức` kiểm tra hai món dùng chung nguyên liệu ảnh hưởng số ly của nhau, size lớn tốn nhiều nguyên liệu hơn, topping hết thì không đặt được, hủy đơn trả đúng lượng đã trừ, đơn vượt nguyên liệu không bị trừ gì, khách gọi `GET /ingredients` bị 403.
+
+Nhóm `Màn hình quầy của nhân viên` kiểm tra chỉ đơn đã thanh toán lên quầy, xếp theo thứ tự trả tiền, đi qua từng nhóm khi nhân viên bấm, khách gọi API bị 403.
+
+[backend/test/api-public.e2e-spec.ts](backend/test/api-public.e2e-spec.ts) kiểm tra thêm API sản phẩm (Task 2), đăng ký/đăng nhập (Task 7) và thời gian phản hồi của các API chính dưới 500 ms (mục 4.2 của đề).
+
+## Kịch bản demo end-to-end
+
+1. Mở http://localhost:3000 và xem menu.
+2. Chọn **Cappuccino**, size **L**, topping **Kem cheese**, rồi bấm *Thêm vào giỏ*.
+3. Thêm một món khác. Trong giỏ hàng, sửa số lượng hoặc xóa món; tổng tiền và badge trên header tự cập nhật.
+4. Bấm *Thanh toán*. Vì chưa đăng nhập, hệ thống chuyển sang trang Đăng nhập; dùng tài khoản demo.
+5. Nhập mã `BREW10`, chọn **VNPay**, bấm *Thanh toán … qua VNPay*. Trình duyệt sang trang sandbox của VNPay.
+6. Chọn *Thẻ nội địa và tài khoản ngân hàng* → NCB, rồi bấm *Hủy thanh toán*. VNPay chuyển về BrewLite, màn hình báo "Thanh toán không thành công": đơn ở `PAYMENT_FAILED`, giỏ hàng vẫn giữ nguyên.
+7. Chọn **MoMo**, bấm thanh toán lại. Trên trang MoMo chọn *Thanh toán bằng thẻ ATM*, nhập thẻ test và OTP (xem bảng thẻ thử nghiệm). MoMo chuyển về BrewLite, màn hình chuyển sang *Đặt hàng thành công* (`PAID`, có mã đơn); đơn không bị tạo lại.
+8. Bấm *Xem biên lai thanh toán*: biên lai theo màu MoMo có mã giao dịch MoMo, hình thức, thời gian xác nhận và dữ liệu gốc MoMo gửi về; bấm *In / Lưu PDF* để lưu. Mở *Đơn hàng* để xem lịch sử, điểm thưởng hiển thị trên header.
+9. Đăng nhập tài khoản barista, mở *Quầy*: đơn vừa thanh toán nằm ở nhóm *Chờ nhận*. Bấm *Nhận đơn*, *Pha xong*, *Đã giao khách*; trang đơn hàng của khách tự cập nhật theo.
+10. Mở *Doanh thu*: giao dịch vừa xong có logo MoMo, mã giao dịch của MoMo và link *Biên lai*, được cộng vào *Tiền đã vào*; giao dịch VNPay bị hủy nằm ở mục *Thất bại*, không được tính tiền. Đối chiếu trên trang quản trị merchant sandbox của VNPay hoặc tra cứu MoMo bằng mã giao dịch.
+11. Đặt và thanh toán thêm một đơn. Đơn chưa pha nên khách vẫn thấy nút *Hủy đơn*; lần này để barista bấm *Hủy đơn* ở *Quầy*: nguyên liệu về kho, điểm thưởng bị thu hồi, giao dịch chuyển sang *Cần hoàn tiền* trên trang *Doanh thu* và không còn tính vào *Tiền đã vào*.
+12. Mở *Kho*: mỗi món hiện số ly còn bán được và nguyên liệu hết trước. Đăng nhập lại khách, đặt vài ly Latte: trên trang *Kho*, Latte giảm và Cappuccino, Americano cũng giảm theo vì dùng chung espresso và sữa tươi. Hủy đơn đó thì số ly trở lại như cũ. Nhập thêm nguyên liệu *hết trước* của một món ở ô *Nhập kho*: số ly còn bán được của món đó tăng ngay.
+
+### Dùng điện thoại
+
+Mặc định mọi địa chỉ là `localhost`, nên chỉ mở được trên chính máy chạy BrewLite. Để dùng điện thoại, cho điện thoại và máy tính chung một mạng. Nếu Wi-Fi chặn các thiết bị kết nối với nhau, bật **Mobile Hotspot** trên máy tính; khi đó máy tính có IP `192.168.137.1`.
+
+**Mở BrewLite ngay trên điện thoại:** địa chỉ API được nhúng vào frontend lúc build, nên phải build lại theo IP:
+
+```powershell
+$env:NEXT_PUBLIC_API_URL="http://192.168.137.1:4000"
+$env:FRONTEND_URL="http://localhost:3000,http://192.168.137.1:3000"
+docker compose up -d --build
+```
+
+Điện thoại mở `http://192.168.137.1:3000` (laptop phải có Internet để điện thoại vào được trang MoMo, VNPay). Thanh toán xong, cổng chuyển điện thoại về đúng địa chỉ này. Nếu điện thoại không mở được trang, cho phép các cổng 3000, 4000 trong Windows Firewall.
+
+## Nghiệp vụ backend (Task 10)
+
+- **State machine** – [order-state-machine.ts](backend/src/orders/order-state-machine.ts): `assertTransition` chặn mọi chuyển tiếp không có trong sơ đồ. Câu lệnh cập nhật có điều kiện `WHERE status = <trạng thái cũ>`, nên hai request không thể ghi đè trạng thái của nhau.
+- **Thanh toán qua cổng bên thứ ba (MoMo, VNPay sandbox)** – [payments.service.ts](backend/src/payments/payments.service.ts), [momo.ts](backend/src/payments/gateways/momo.ts), [vnpay.ts](backend/src/payments/gateways/vnpay.ts):
+    - `POST /payments` giữ chỗ `Idempotency-Key` bằng một bản ghi `PROCESSING` có ràng buộc UNIQUE, rồi mới tạo giao dịch ở cổng. Request lặp lại nhận lại đúng phiên cũ, không tạo giao dịch thứ hai ở cổng.
+    - Dòng đơn hàng được khóa bằng `SELECT … FOR UPDATE`, nên một đơn chỉ có một phiên thanh toán đang mở.
+    - Đơn chỉ sang `PAID` khi cổng xác nhận: kết quả quay về hoặc IPN phải đúng chữ ký (MoMo HMAC-SHA256, VNPay HMAC-SHA512) và đúng số tiền, rồi backend còn tra cứu lại cổng. Khách không có cách nào tự báo "đã thanh toán" cho BrewLite.
+    - Kết quả báo lặp chỉ được xử lý một lần. Phiên bỏ dở quá 5 phút hết hạn và không còn chặn việc hủy đơn.
+    - Lưu mã giao dịch của cổng, ngân hàng, hình thức và nguyên văn kết quả có chữ ký làm bằng chứng; trang biên lai in hoặc lưu PDF được.
+- **Tồn kho theo nguyên liệu khi đặt đồng thời** – [orders.service.ts](backend/src/orders/orders.service.ts), [inventory.ts](backend/src/ingredients/inventory.ts):
+    - Mỗi món và topping có công thức nguyên liệu; size M, L dùng nhiều hơn size S. Số ly còn bán được tính từ nguyên liệu hết trước, nên các món dùng chung nguyên liệu ảnh hưởng lẫn nhau.
+    - Tạo đơn trong một transaction: cộng dồn nguyên liệu của cả đơn rồi trừ từng nguyên liệu bằng optimistic locking (`UPDATE … WHERE version = v`).
+    - Nếu version đã đổi thì đọc lại và thử lại; nếu không đủ nguyên liệu thì trả 409 và không trừ gì.
+    - Nguyên liệu luôn được khóa theo `id` tăng dần, nên hai đơn dùng chung nguyên liệu đặt cùng lúc không bị deadlock.
+    - Lượng đã trừ lưu theo đơn; hủy đơn hoặc đơn chưa thanh toán quá 5 phút tự hủy thì trả lại đúng lượng đó.
+- **Khuyến mãi và điểm thưởng** – [pricing.ts](backend/src/orders/pricing.ts):
+    - Mã giảm giá được kiểm tra hạn dùng và giá trị đơn tối thiểu.
+    - Khách được cộng 1 điểm cho mỗi 1.000đ, chỉ khi đơn sang `PAID`; hủy đơn đã `PAID` thì điểm bị thu hồi.
+- **Hủy đơn đã thanh toán** – được hủy cho tới khi quầy bấm *Nhận đơn*: khách bấm *Hủy đơn* trên trang đơn hàng, hoặc nhân viên bấm ở trang *Quầy*. Từ lúc đang pha trở đi thì không ai hủy được (409). Giao dịch của đơn đó hiện ở mục *Cần hoàn tiền* trên trang *Doanh thu* để quầy hoàn tiền cho khách.
+
+Chi tiết endpoint xem [docs/api.md](docs/api.md).
+
+## Tài liệu Scrum
+
+- [Product Backlog](docs/scrum/product-backlog.md): nhóm Scrum, user story kèm tiêu chí chấp nhận, Definition of Done, kết quả nghiệm thu, backlog cho phiên bản sau.
+- [Sprint 1](docs/scrum/sprint-1.md), [Sprint 2](docs/scrum/sprint-2.md), [Sprint 3](docs/scrum/sprint-3.md): Sprint backlog, Daily Scrum, burndown, Review, Retrospective.
+- [Danh sách Pull Request](docs/scrum/danh-sach-pr.md), [quy trình Git](docs/scrum/huong-dan-git.md), [test case](docs/scrum/test-case.md), [kịch bản demo bàn giao](docs/scrum/kich-ban-demo.md).
