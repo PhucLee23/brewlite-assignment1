@@ -19,7 +19,7 @@ TV2 (PO) chủ trì, cả nhóm chốt Sprint Goal và chia hạng mục theo b�
 | 3.1 | Lõi thanh toán: gateway.ts, POST /payments (idempotency), phiên 5 phút, settle, link quay về, tự tra cứu, IPN | TV4 | 8 | 8, 10 | `backend/src/payments/` | `feat/8-10-loi-thanh-toan` | Đã merge |
 | 3.2 | Cổng VNPay (ký HMAC-SHA512) + unit test | TV4 | 3 | 8 | `backend/src/payments/gateways/vnpay.ts` | `feat/8-cong-vnpay` | Đã merge |
 | 3.3 | Test e2e Task 10 (a)(b)(c), cổng giả fake-gateways.ts | TV4 | 5 | 10 | `backend/test/order-flow.e2e-spec.ts`, `fake-gateways.ts` | `test/10-e2e-task-10` | Đã merge |
-| 3.4 | Cổng MoMo (HMAC-SHA256) + unit test, theo khuôn gateway.ts | TV1 | 3 | 8 | `backend/src/payments/gateways/momo.ts` | `feat/8-cong-momo` | Đã merge |
+| 3.4 | Cổng MoMo (HMAC-SHA256) + unit test, theo khuôn gateway.ts | TV4 | 3 | 8 | `backend/src/payments/gateways/momo.ts` | `feat/8-cong-momo` | Đã merge |
 | 3.5 | Điểm thưởng: cộng khi PAID, thu hồi khi hủy, kèm test | TV2 | 2 | 10 | `backend/src/orders/pricing.ts`, `payments.service.ts` | `feat/10-diem-thuong` | Đã merge |
 | 3.6 | API cho Quầy: GET /orders?status= (STAFF), hủy đơn đã PAID | TV3 | 3 | 9, 10 | `backend/src/orders/orders.service.ts`, `orders.controller.ts` | `feat/9-api-quay` | Đã merge |
 | 3.7 | API Doanh thu (GET /payments, REFUND_DUE) + API biên lai | TV5 | 3 | 8, 9 | `backend/src/payments/payments.service.ts` | `feat/8-api-doanh-thu-bien-lai` | Đã merge |

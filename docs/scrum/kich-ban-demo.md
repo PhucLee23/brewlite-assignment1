@@ -22,8 +22,8 @@ Buổi Sprint Review cuối, ngày 4/11/2026, đóng vai bàn giao cho khách h�
 | 8 | TV2 | Barista mở *Quầy*: *Nhận đơn*, *Pha xong*, *Đã giao khách*; trang đơn của khách tự cập nhật | 3.12 |
 | 9 | TV6 | *Doanh thu*: giao dịch MoMo được cộng tiền, giao dịch VNPay bị hủy ở mục *Thất bại*; *Kho*: đặt Latte thì Cappuccino giảm theo, nhập kho thì số ly tăng | 3.9, 3.10 |
 | 10 | TV3 | CSDL 11 bảng (mở Prisma Studio bằng `xem-database.bat`), công thức nguyên liệu, API sản phẩm, hủy đơn trả nguyên liệu | 1.3, 1.4, 1.5, 2.8, 2.9, 3.6 |
-| 11 | TV4 | Task 10: state machine, optimistic locking, Idempotency-Key, xác nhận chữ ký cổng; chạy `npm run test:e2e` cho thấy (a), (b), (c) đạt | 1.10, 2.7, 3.1, 3.2, 3.3 |
-| 12 | TV1 | `docker compose` 3 dịch vụ, cổng MoMo, mã khuyến mãi, JWT và phân quyền | 2.1, 2.2, 2.3, 3.4, 3.13 |
+| 11 | TV4 | Task 10: state machine, optimistic locking, Idempotency-Key, xác nhận chữ ký cổng MoMo, VNPay; chạy `npm run test:e2e` cho thấy (a), (b), (c) đạt | 1.10, 2.7, 3.1, 3.2, 3.3, 3.4 |
+| 12 | TV1 | `docker compose` 3 dịch vụ, mã khuyến mãi, JWT và phân quyền | 2.1, 2.2, 2.3, 3.13 |
 | 13 | TV1 | Sprint Retrospective: điều làm tốt, điều cần cải thiện | 3.14 |
 | 14 | TV2 | Nhận phản hồi của giảng viên, ghi vào *Backlog cho phiên bản sau* | 3.18 |
 

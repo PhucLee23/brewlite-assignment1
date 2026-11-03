@@ -8,10 +8,10 @@
 
 | TV | Họ tên | GitHub | Vai | Phần phụ trách chính |
 | --- | --- | --- | --- | --- |
-| TV1 | Phạm Tuyết Nhi | `phamtuyetnhi756-droid` | Scrum Master | Khung backend, JWT + phân quyền, mã khuyến mãi, cổng MoMo, Docker, biên bản Sprint |
+| TV1 | Phạm Tuyết Nhi | `phamtuyetnhi756-droid` | Scrum Master | Khung backend, JWT + phân quyền, mã khuyến mãi, Docker, biên bản Sprint |
 | TV2 | Lê Trương Thảo My | `M-y-n-e` | Product Owner | Backlog, 2 bộ test e2e, điểm thưởng, trang Quầy, trang 404/lỗi, nghiệm thu, kịch bản demo |
 | TV3 | Lý Ngọc Uyên Phương | `uly2869-collab` | Developer (backend) | CSDL + seed, API sản phẩm (tính từ nguyên liệu), API đơn hàng, API Quầy và Kho |
-| TV4 | Lê Ngọc Phúc | `PhucLee23` | Developer (backend), nhóm trưởng | State machine, tạo đơn (tính giá, khóa tồn kho), lõi thanh toán + VNPay, test e2e Task 10 |
+| TV4 | Lê Ngọc Phúc | `PhucLee23` | Developer (backend), nhóm trưởng | State machine, tạo đơn (tính giá, khóa tồn kho), lõi thanh toán + VNPay, MoMo, test e2e Task 10 |
 | TV5 | Nguyễn Lê Bảo Yến Vy | `nlbyv2107-del` | Developer (frontend lead) | Khung Next.js, Menu, Chi tiết, Đăng nhập, trang đơn + biên lai, API Doanh thu, README |
 | TV6 | Mai Thu Hường | `LauraaMao` | Developer (frontend) | Giao diện chung, Giỏ hàng, Checkout, trang thanh toán, trang Kho, trang Doanh thu |
 
@@ -28,7 +28,7 @@
 | 5 | Giỏ hàng | US-03 | 1, 2 | TV6 | 1.9, 2.5 | Hoàn thành |
 | 6 | API tạo đơn hàng | US-05 | 2 | TV6, TV4 | 2.6, 2.7 | Hoàn thành |
 | 7 | Đăng ký / Đăng nhập (JWT) | US-04 | 2, 3 | TV1, TV5, TV2 | 2.1, 2.4, 2.10, 3.16 | Hoàn thành |
-| 8 | Thanh toán không tiền mặt | US-05, US-11 | 3 | TV4, TV1, TV5, TV6 | 3.1, 3.2, 3.4, 3.7, 3.8, 3.10 | Hoàn thành |
+| 8 | Thanh toán không tiền mặt | US-05, US-11 | 3 | TV4, TV5, TV6 | 3.1, 3.2, 3.4, 3.7, 3.8, 3.10 | Hoàn thành |
 | 9 | Xác nhận, lịch sử đơn và bàn giao | US-06, US-12 | 2, 3 | TV1, TV3, TV5, TV6, TV2 | 2.2, 2.8, 3.6, 3.7, 3.9, 3.11, 3.12, 3.13, 3.15, 3.16, 3.17, 3.18 | Hoàn thành |
 | 10 | Nghiệp vụ backend | US-07 → US-10, US-13 | 1, 2, 3 | TV3, TV4, TV1, TV2 | 1.3, 1.10, 2.3, 2.7, 2.8, 2.9, 3.1, 3.3, 3.5, 3.6 | Hoàn thành |
 
