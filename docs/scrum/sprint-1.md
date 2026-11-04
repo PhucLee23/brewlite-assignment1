@@ -9,25 +9,25 @@
 TV2 (PO) chủ trì, cả nhóm chốt Sprint Goal và chia hạng mục theo bản phân công.
 
 - Mốc ưu tiên: Khung backend (1.2) và khung frontend (1.6) làm trước; Prisma schema (1.3) xong thì mới làm seed và API sản phẩm; giao diện dùng chung (1.9) xong thì mới làm Menu và Chi tiết.
-- Một hạng mục được tính xong khi PR của nó đã có Approve và merge vào `main`. Thứ tự merge và người review: [danh-sach-pr.md](danh-sach-pr.md).
+- Một hạng mục được tính xong khi PR của nó đã có Approve và merge vào `main`. Người review theo quy ước review chéo trong [danh-sach-pr.md](danh-sach-pr.md).
 - Hình thức và người tham dự: [...]
 
 ## Sprint Backlog
 
-| Mã | Hạng mục | TV | SP | Task | File chính | Nhánh | Trạng thái |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| 1.1 | Repo, monorepo, .gitignore, mẫu PR, hướng dẫn Git | TV1 | 2 | 1 | `.gitignore`, `README.md`, `.github/pull_request_template.md` | `main` | Đã merge |
-| 1.2 | Khởi tạo NestJS + Prisma, ValidationPipe, compose PostgreSQL, .env.example | TV1 | 3 | 1 | `backend/src/main.ts`, `app.module.ts`, `app.setup.ts`, `docker-compose.yml` | `chore/1-khoi-tao-backend` | Đã merge |
-| 1.3 | schema.prisma đủ 11 bảng (có nguyên liệu, công thức) + migration | TV3 | 5 | 2, 10 | `backend/prisma/schema.prisma`, `migrations/` | `feat/2-prisma-schema` | Đã merge |
-| 1.4 | Seed: 15 món, 20 nguyên liệu, công thức, tài khoản mẫu, mã giảm giá | TV3 | 3 | 2 | `backend/prisma/seed.ts` | `feat/2-du-lieu-mau` | Đã merge |
-| 1.5 | GET /products, GET /products/:id; tính số ly còn bán từ nguyên liệu (inventory.ts) + unit test | TV3 | 5 | 2, 4 | `backend/src/products/`, `ingredients/inventory.ts` | `feat/2-api-san-pham` | Đã merge |
-| 1.6 | Khởi tạo Next.js + Tailwind, layout, api.ts, types.ts, format.ts | TV5 | 3 | 1 | `frontend/src/app/layout.tsx`, `lib/api.ts`, `lib/types.ts`, `lib/format.ts` | `chore/1-khoi-tao-frontend` | Đã merge |
-| 1.7 | Trang Menu | TV5 | 3 | 3 | `frontend/src/app/page.tsx`, `public/images/` | `feat/3-trang-menu` | Đã merge |
-| 1.8 | Trang Chi tiết món: size theo tồn kho, topping, tính giá | TV5 | 5 | 4 | `frontend/src/app/products/[id]/page.tsx` | `feat/4-chi-tiet-mon` | Đã merge |
-| 1.9 | Giao diện dùng chung (ui.tsx), Header + badge, store giỏ hàng | TV6 | 5 | 4, 5 | `frontend/src/components/ui.tsx`, `Header.tsx`, `store/cart.ts` | `feat/4-giao-dien-chung-gio-hang` | Đã merge |
-| 1.10 | State machine đơn hàng + unit test | TV4 | 3 | 10 | `backend/src/orders/order-state-machine.ts` | `feat/10-state-machine` | Đã merge |
-| 1.11 | Product Backlog, user story, api.md, burndown | TV2 | 5 | Tất cả | `docs/scrum/`, `docs/api.md` | `docs/backlog-sprint` | Đã merge |
-| | **Tổng** | | **42** | | | | |
+| Mã | Hạng mục | TV | SP | Task | PR | Trạng thái |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1.1 | Repo, monorepo, .gitignore, mẫu PR, hướng dẫn Git | TV1 | 2 | 1 | – (push thẳng `main`) | Đã merge |
+| 1.2 | Khởi tạo NestJS + Prisma, ValidationPipe, compose PostgreSQL, .env.example | TV1 | 3 | 1 | [#1](https://github.com/PhucLee23/brewlite-assignment1/pull/1) | Đã merge |
+| 1.3 | schema.prisma đủ 11 bảng (có nguyên liệu, công thức) + migration | TV3 | 5 | 2, 10 | [#13](https://github.com/PhucLee23/brewlite-assignment1/pull/13) | Đã merge |
+| 1.4 | Seed: 15 món, 20 nguyên liệu, công thức, tài khoản mẫu, mã giảm giá | TV3 | 3 | 2 | [#14](https://github.com/PhucLee23/brewlite-assignment1/pull/14) | Đã merge |
+| 1.5 | GET /products, GET /products/:id; tính số ly còn bán từ nguyên liệu (inventory.ts) + unit test | TV3 | 5 | 2, 4 | [#18](https://github.com/PhucLee23/brewlite-assignment1/pull/18) | Đã merge |
+| 1.6 | Khởi tạo Next.js + Tailwind, layout, api.ts, types.ts, format.ts | TV5 | 3 | 1 | [#12](https://github.com/PhucLee23/brewlite-assignment1/pull/12) | Đã merge |
+| 1.7 | Trang Menu | TV5 | 3 | 3 | [#19](https://github.com/PhucLee23/brewlite-assignment1/pull/19) | Đã merge |
+| 1.8 | Trang Chi tiết món: size theo tồn kho, topping, tính giá | TV5 | 5 | 4 | [#27](https://github.com/PhucLee23/brewlite-assignment1/pull/27) | Đã merge |
+| 1.9 | Giao diện dùng chung (ui.tsx), Header + badge, store giỏ hàng | TV6 | 5 | 4, 5 | [#17](https://github.com/PhucLee23/brewlite-assignment1/pull/17) | Đã merge |
+| 1.10 | State machine đơn hàng + unit test | TV4 | 3 | 10 | [#16](https://github.com/PhucLee23/brewlite-assignment1/pull/16) | Đã merge |
+| 1.11 | Product Backlog, user story, api.md, burndown | TV2 | 5 | Tất cả | [#15](https://github.com/PhucLee23/brewlite-assignment1/pull/15) | Đã merge |
+| | **Tổng** | | **42** | | | |
 
 ## Daily Scrum
 
@@ -41,14 +41,19 @@ TV1 (SM) chủ trì, 15 phút mỗi ngày; mỗi người trả lời: hôm qua 
 
 ## Burndown
 
-SP còn lại cuối ngày = tổng SP của Sprint trừ SP các hạng mục đã merge. TV1 cập nhật cột *Thực tế* sau Daily Scrum.
+SP còn lại cuối ngày = tổng SP của Sprint trừ SP các hạng mục đã merge vào `main` (theo giờ merge trên GitHub).
+
+![Burndown Sprint 1](burndown-sprint-1.png)
 
 | Cuối ngày | Lý tưởng (SP còn lại) | Thực tế (SP còn lại) | Hạng mục đã merge trong ngày |
 | --- | --- | --- | --- |
 | Bắt đầu | 42 | 42 | – |
-| 28/10 | 28 | [...] | [...] |
-| 29/10 | 14 | [...] | [...] |
-| 30/10 | 0 | [...] | [...] |
+| 28/10 | 28 | 40 | 1.1 |
+| 29/10 | 14 | 13 | 1.2, 1.3, 1.4, 1.6, 1.9, 1.10, 1.11 |
+| 30/10 | 0 | 5 | 1.5, 1.7 |
+| 31/10 | 0 | 0 | 1.8 |
+
+Ngày 28/10 mới xong 1.1 nên đường thực tế nằm trên đường lý tưởng; ngày 29/10 merge 7 hạng mục và vượt lên. Hạng mục 1.8 (Chi tiết món) merge ngày 31/10, Sprint 1 xong trễ 1 ngày so với kế hoạch.
 
 ## Sprint Review
 

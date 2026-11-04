@@ -2,7 +2,7 @@
 
 **Product Vision:** "BrewLite giúp khách hàng đặt và thanh toán đồ uống **không dùng tiền mặt** chỉ trong vài chạm, giảm thời gian xếp hàng và nhận đơn nhanh tại quầy."
 
-**Kế hoạch:** 3 Sprint theo gợi ý của đề (mục 2.3), tổng **150 SP**, từ 28/10 đến 3/11/2026, bàn giao ngày 4/11/2026. Mỗi thành viên có code ở cả 3 Sprint. Thứ tự merge và người review: [danh-sach-pr.md](danh-sach-pr.md).
+**Kế hoạch:** 3 Sprint theo gợi ý của đề (mục 2.3), tổng **150 SP**, từ 28/10 đến 3/11/2026, bàn giao ngày 4/11/2026. Mỗi thành viên có code ở cả 3 Sprint. Pull Request đã merge: [danh-sach-pr.md](danh-sach-pr.md).
 
 ## Nhóm Scrum
 

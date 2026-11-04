@@ -15,4 +15,4 @@
 - [ ] Build không lỗi, các test liên quan đều qua
 - [ ] API có validate đầu vào; giao diện có trạng thái đang tải và báo lỗi
 - [ ] Đã cập nhật README hoặc `docs/` nếu cần
-- [ ] Đã chọn người review theo [danh sách PR](docs/scrum/danh-sach-pr.md)
+- [ ] Đã chọn người review theo quy ước review chéo trong [danh sách PR](docs/scrum/danh-sach-pr.md)
