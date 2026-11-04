@@ -118,7 +118,7 @@ Hai file này nằm trong `.gitignore`. **Không commit chuỗi bí mật**: ai 
 
 CSDL chạy trong Docker, nên cần chạy `docker compose up -d` trước.
 
-- **Prisma Studio (Windows):** bấm đúp file `xem-database.bat` ở thư mục gốc, rồi mở http://localhost:5555. Máy khác chạy `cd backend && npx prisma studio`.
+- **Prisma Studio:** chạy `cd backend && npx prisma studio` (lần đầu chép `backend/.env.example` thành `backend/.env` và chạy `npm ci`), rồi mở http://localhost:5555.
 - **VS Code, Antigravity, Cursor:** mở thư mục dự án, cài extension **Database Client** (`cweijan.vscode-database-client2`) theo gợi ý của editor, rồi thêm kết nối PostgreSQL một lần:
 
 | Mục | Giá trị |

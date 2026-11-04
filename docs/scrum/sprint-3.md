@@ -28,7 +28,7 @@ TV2 (PO) chủ trì, cả nhóm chốt Sprint Goal và chia hạng mục theo b�
 | 3.10 | Trang Doanh thu (/admin/revenue) | TV6 | 3 | 8 | `frontend/src/app/admin/revenue/page.tsx` | `feat/8-trang-doanh-thu` | Đã merge |
 | 3.11 | Trang đơn hàng (tự cập nhật, hủy), Lịch sử đơn, trang Biên lai | TV5 | 5 | 9 | `frontend/src/app/orders/`, `app/payments/[id]/receipt/page.tsx` | `feat/9-trang-don-hang-bien-lai` | Đã merge |
 | 3.12 | Trang Quầy (/admin/orders) | TV2 | 3 | 9 | `frontend/src/app/admin/orders/page.tsx` | `feat/9-trang-quay` | Đã merge |
-| 3.13 | Dockerfile frontend, compose 3 dịch vụ, xem-database.bat | TV1 | 3 | 9 | `frontend/Dockerfile`, `docker-compose.yml`, `xem-database.bat` | `feat/9-docker-frontend` | Đã merge |
+| 3.13 | Dockerfile frontend, compose 3 dịch vụ, xem-database.bat | TV1 | 3 | 9 | `frontend/Dockerfile`, `docker-compose.yml` | `feat/9-docker-frontend` | Đã merge |
 | 3.14 | Biên bản Sprint Review và Retrospective cho 3 Sprint | TV1 | 3 | – | `docs/scrum/sprint-*.md` | `docs/sprint-1-review`, `docs/sprint-2-review`, `docs/sprint-3-review` | Đã merge |
 | 3.15 | Trang 404, trang lỗi | TV2 | 2 | 3, 9 | `frontend/src/app/not-found.tsx`, `error.tsx` | `feat/3-9-trang-loi` | Đã merge |
 | 3.16 | Test e2e phân quyền: khách gọi API Quầy/Kho/Doanh thu bị 401/403 | TV2 | 3 | 7, 9 | `backend/test/order-flow.e2e-spec.ts` | `test/7-9-e2e-phan-quyen` | Đã merge |
