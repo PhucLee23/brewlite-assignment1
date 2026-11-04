@@ -222,4 +222,4 @@ Chi tiết endpoint xem [docs/api.md](docs/api.md).
 
 - [Product Backlog](docs/scrum/product-backlog.md): nhóm Scrum, user story kèm tiêu chí chấp nhận, Definition of Done, kết quả nghiệm thu, backlog cho phiên bản sau.
 - [Sprint 1](docs/scrum/sprint-1.md), [Sprint 2](docs/scrum/sprint-2.md), [Sprint 3](docs/scrum/sprint-3.md): Sprint backlog, Daily Scrum, burndown, Review, Retrospective.
-- [Danh sách Pull Request](docs/scrum/danh-sach-pr.md), [quy trình Git](docs/scrum/huong-dan-git.md), [test case](docs/scrum/test-case.md).
+- [Danh sách Pull Request](docs/scrum/danh-sach-pr.md), [test case](docs/scrum/test-case.md).

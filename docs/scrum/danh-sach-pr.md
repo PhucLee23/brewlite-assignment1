@@ -2,7 +2,7 @@
 
 42 Pull Request cho 40 hạng mục của 3 Sprint (hạng mục 3.14 nộp thành 3 PR, mỗi Sprint một PR). Cột *Task* là task của đề bài mà PR phục vụ. PR có cột *Merge sau* phải chờ PR đó merge xong mới tạo nhánh; các PR không phụ thuộc nhau thì làm song song.
 
-*STT* (PR01…PR42) là thứ tự merge để cả nhóm dễ gọi; GitHub tự đánh số riêng (#…, dùng chung dãy số với Issue), người mở PR điền số đó vào cột *PR trên GitHub* sau khi mở. Quy trình làm một PR: [huong-dan-git.md](huong-dan-git.md).
+*STT* (PR01…PR42) là thứ tự merge để cả nhóm dễ gọi; GitHub tự đánh số riêng (#…, dùng chung dãy số với Issue), người mở PR điền số đó vào cột *PR trên GitHub* sau khi mở.
 
 ## Sprint 1: khởi tạo, CSDL, API sản phẩm, Menu, Chi tiết món
 

@@ -39,7 +39,7 @@
 ### TS-01 – Khởi tạo dự án (Task 1)
 *Là* nhóm phát triển, *chúng tôi muốn* có sẵn monorepo frontend + backend chạy được, *để* mọi người code song song ngay từ ngày đầu.
 - [x] Có `frontend/` (Next.js) và `backend/` (NestJS); `GET /` trả về "Hello BrewLite".
-- [x] Có README, `.gitignore`, `.env.example` cho cả hai phía, mẫu Pull Request và hướng dẫn Git.
+- [x] Có README, `.gitignore`, `.env.example` cho cả hai phía và mẫu Pull Request.
 - [x] `docker compose up -d db` chạy được PostgreSQL.
 - [x] Mọi thay đổi sau commit đầu tiên đi qua Pull Request có người review.
 
