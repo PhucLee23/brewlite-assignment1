@@ -79,7 +79,7 @@ Ngay sau Review, TV1 (SM) chủ trì.
 
 **Hành động cho phiên bản sau:** [...]
 
-## Checklist ngày bàn giao (4/11/2026)
+## Checklist ngày bàn giao
 
 - [ ] `docker compose up -d --build` trên máy demo, mở được http://localhost:3000
 - [ ] Chạy đúng [kịch bản demo](../../README.md#kịch-bản-demo-end-to-end) end-to-end
