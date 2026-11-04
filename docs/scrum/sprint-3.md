@@ -49,8 +49,6 @@ TV1 (SM) chủ trì, 15 phút mỗi ngày; mỗi người trả lời: hôm qua 
 
 SP còn lại cuối ngày = tổng SP của Sprint trừ SP các hạng mục đã merge vào `main` (theo giờ merge trên GitHub).
 
-![Burndown Sprint 3](burndown-sprint-3.png)
-
 | Cuối ngày | Lý tưởng (SP còn lại) | Thực tế (SP còn lại) | Hạng mục đã merge trong ngày |
 | --- | --- | --- | --- |
 | Bắt đầu (2/11) | 64 | 30 | Làm sớm 31/10 – 1/11: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.8, 3.13, 3.15 |

@@ -42,8 +42,6 @@ TV1 (SM) chủ trì, 15 phút mỗi ngày; mỗi người trả lời: hôm qua 
 
 SP còn lại cuối ngày = tổng SP của Sprint trừ SP các hạng mục đã merge vào `main` (theo giờ merge trên GitHub).
 
-![Burndown Sprint 2](burndown-sprint-2.png)
-
 | Cuối ngày | Lý tưởng (SP còn lại) | Thực tế (SP còn lại) | Hạng mục đã merge trong ngày |
 | --- | --- | --- | --- |
 | Bắt đầu | 44 | 44 | – |
