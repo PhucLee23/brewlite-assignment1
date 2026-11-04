@@ -33,7 +33,7 @@ TV2 (PO) chủ trì, cả nhóm chốt Sprint Goal và chia hạng mục theo b�
 | 3.15 | Trang 404, trang lỗi | TV2 | 2 | 3, 9 | `frontend/src/app/not-found.tsx`, `error.tsx` | `feat/3-9-trang-loi` | Đã merge |
 | 3.16 | Test e2e phân quyền: khách gọi API Quầy/Kho/Doanh thu bị 401/403 | TV2 | 3 | 7, 9 | `backend/test/order-flow.e2e-spec.ts` | `test/7-9-e2e-phan-quyen` | Đã merge |
 | 3.17 | README bàn giao | TV5 | 2 | 9 | `README.md` | `docs/9-readme-ban-giao` | Đã merge |
-| 3.18 | Kịch bản demo, bug bash, nghiệm thu cuối | TV2 | 5 | 9 | `docs/scrum/test-case.md`, `kich-ban-demo.md` | `docs/nghiem-thu-cuoi` | Đã merge |
+| 3.18 | Kịch bản demo, bug bash, nghiệm thu cuối | TV2 | 5 | 9 | `docs/scrum/test-case.md` | `docs/nghiem-thu-cuoi` | Đã merge |
 | | **Tổng** | | **64** | | | | |
 
 ## Daily Scrum
@@ -80,6 +80,6 @@ Ngay sau Review, TV1 (SM) chủ trì.
 ## Checklist ngày bàn giao (4/11/2026)
 
 - [ ] `docker compose up -d --build` trên máy demo, mở được http://localhost:3000
-- [ ] Chạy đúng [kịch bản demo](kich-ban-demo.md) end-to-end
+- [ ] Chạy đúng [kịch bản demo](../../README.md#kịch-bản-demo-end-to-end) end-to-end
 - [ ] Trình bày Retrospective (bảng trên)
 - [ ] Ghi phản hồi của giảng viên vào mục *Backlog cho phiên bản sau* trong [product-backlog.md](product-backlog.md)

@@ -147,7 +147,7 @@ PO nghiệm thu trên `main` sau khi merge đủ hạng mục của 3 Sprint, ch
 | --- | --- | --- |
 | `cd backend && npm test` (unit test) | 26/26 đạt | State machine (US-10), tính giá và mã giảm giá (US-02, US-09), lượng nguyên liệu theo size (US-13), chữ ký MoMo, VNPay (US-05) |
 | `cd backend && npm run test:e2e` (PostgreSQL thật) | 62/62 đạt | API sản phẩm, đăng ký/đăng nhập, thời gian phản hồi < 500 ms (US-01, US-04, mục 4.2 của đề); (a) chặn chuyển trạng thái sai (US-10); (b) Idempotency-Key (US-07); (c) đặt đồng thời không vượt tồn kho (US-08); thanh toán MoMo, VNPay với cổng giả lập ký đúng như cổng thật (US-05); điểm thưởng (US-09); Doanh thu, Quầy, Kho chỉ cho nhân viên (US-11, US-12, US-13) |
-| Thao tác trên giao diện theo [kịch bản demo](kich-ban-demo.md) | [...] | US-01 – US-06, US-11 – US-13 |
+| Thao tác trên giao diện theo [kịch bản demo](../../README.md#kịch-bản-demo-end-to-end) | [...] | US-01 – US-06, US-11 – US-13 |
 
 ## Backlog cho phiên bản sau
 
