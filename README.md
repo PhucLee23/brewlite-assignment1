@@ -19,7 +19,7 @@ Khách chọn đồ uống (size, topping), thêm vào giỏ, đăng nhập rồ
 | 1 | Phạm Tuyết Nhi | 3124720049 | Scrum Master, Developer | Khung backend, đăng ký/đăng nhập JWT và phân quyền, mã khuyến mãi, Docker |
 | 2 | Lê Trương Thảo My | 3124720045 | Product Owner, Developer | Product Backlog, test e2e API công khai và phân quyền, điểm thưởng, trang Quầy, trang 404 |
 | 3 | Lý Ngọc Uyên Phương | 3124720055 | Developer | CSDL và dữ liệu mẫu, API sản phẩm, xem và hủy đơn, API Kho, API Quầy |
-| 4 | Lê Ngọc Phúc | 3124720053 | Developer, nhóm trưởng | State machine, tạo đơn và trừ nguyên liệu, thanh toán MoMo/VNPay, test e2e Task 10 |
+| 4 | Lê Ngọc Phúc | 3124720053 | Developer | State machine, tạo đơn và trừ nguyên liệu, thanh toán MoMo/VNPay, test e2e Task 10 |
 | 5 | Nguyễn Lê Bảo Yến Vy | 3124720078 | Developer | Khung Next.js, trang Menu, Chi tiết món, Đăng nhập, trang đơn hàng và biên lai, API Doanh thu |
 | 6 | Mai Thu Hường | 3124720031 | Developer | Giao diện dùng chung, Giỏ hàng, Checkout, chọn cổng thanh toán, trang Kho, trang Doanh thu |
 
