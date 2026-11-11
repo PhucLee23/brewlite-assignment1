@@ -12,24 +12,79 @@ Khách chọn đồ uống (size, topping), thêm vào giỏ, đăng nhập rồ
 | Thanh toán | MoMo và VNPay, môi trường sandbox (thử nghiệm, không trừ tiền thật) |
 | DevOps | Docker Compose, Git |
 
+## Thành viên nhóm
+
+| TV | Họ và tên | MSSV | Vai trò Scrum | Phụ trách chính |
+| :-: | --- | --- | --- | --- |
+| 1 | Phạm Tuyết Nhi | 3124720049 | Scrum Master, Developer | Khung backend, đăng ký/đăng nhập JWT và phân quyền, mã khuyến mãi, Docker |
+| 2 | Lê Trương Thảo My | 3124720045 | Product Owner, Developer | Product Backlog, test e2e API công khai và phân quyền, điểm thưởng, trang Quầy, trang 404 |
+| 3 | Lý Ngọc Uyên Phương | 3124720055 | Developer | CSDL và dữ liệu mẫu, API sản phẩm, xem và hủy đơn, API Kho, API Quầy |
+| 4 | Lê Ngọc Phúc | 3124720053 | Developer, nhóm trưởng | State machine, tạo đơn và trừ nguyên liệu, thanh toán MoMo/VNPay, test e2e Task 10 |
+| 5 | Nguyễn Lê Bảo Yến Vy | 3124720078 | Developer | Khung Next.js, trang Menu, Chi tiết món, Đăng nhập, trang đơn hàng và biên lai, API Doanh thu |
+| 6 | Mai Thu Hường | 3124720031 | Developer | Giao diện dùng chung, Giỏ hàng, Checkout, chọn cổng thanh toán, trang Kho, trang Doanh thu |
+
+Chi tiết từng hạng mục và Pull Request xem [Product Backlog](docs/scrum/product-backlog.md) và [Danh sách Pull Request](docs/scrum/danh-sach-pr.md).
+
 ## Cấu trúc
 
+Số Task ghi theo Product Backlog của đề (Task 1–10).
+
 ```
-BrewLite/
-├── backend/            NestJS API (cổng 4000)
-│   ├── prisma/         schema.prisma, migrations/, seed.ts
+brewlite-assignment1/
+├── backend/                            NestJS API, cổng 4000
+│   ├── prisma/
+│   │   ├── schema.prisma               11 bảng: món, topping, nguyên liệu, công thức, đơn, thanh toán…
+│   │   ├── migrations/                 migration tạo CSDL
+│   │   └── seed.ts                     dữ liệu mẫu: 15 món, 4 topping, 20 nguyên liệu, mã giảm giá, tài khoản
 │   ├── src/
-│   │   ├── auth/       đăng ký, đăng nhập, JwtStrategy, JwtAuthGuard, RolesGuard
-│   │   ├── products/   GET /products, GET /products/:id (số ly còn tính từ nguyên liệu)
-│   │   ├── ingredients/ công thức, tính số ly còn, trang Kho và nhập kho
-│   │   ├── orders/     tạo đơn, state machine, trừ nguyên liệu, khuyến mãi
-│   │   ├── payments/   mở phiên ở MoMo/VNPay (gateways/), xác nhận kết quả có chữ ký, IPN, biên lai, GET /payments (doanh thu)
-│   │   └── promotions/ kiểm tra mã giảm giá
-│   └── test/           test tích hợp (e2e) cho Task 10
-├── frontend/           Next.js (cổng 3000)
-│   └── src/app/        menu, products/[id], cart, checkout, payments/[id] (chờ kết quả cổng), payments/[id]/receipt (biên lai), orders, admin/orders (quầy), admin/ingredients (kho), admin/revenue, login, register
-├── docs/api.md         hợp đồng API
-└── docker-compose.yml  db + backend + frontend
+│   │   ├── main.ts, app.setup.ts       khởi động, ValidationPipe, CORS
+│   │   ├── app.controller.ts           GET / trả "Hello BrewLite" (Task 1)
+│   │   ├── products/                   GET /products, GET /products/:id (Task 2, 4)
+│   │   ├── auth/                       đăng ký, đăng nhập bcrypt + JWT, JwtAuthGuard, RolesGuard (Task 7)
+│   │   ├── orders/
+│   │   │   ├── orders.service.ts       tạo đơn PENDING, xem, hủy, lịch sử GET /orders/me (Task 6, 9, 10)
+│   │   │   ├── order-state-machine.ts  sơ đồ chuyển trạng thái đơn (Task 10)
+│   │   │   └── pricing.ts              tính giá theo size/topping, mã giảm giá, điểm thưởng (Task 4, 10)
+│   │   ├── payments/
+│   │   │   ├── payments.service.ts     POST /payments idempotent, xác nhận kết quả, biên lai, doanh thu (Task 8, 10)
+│   │   │   ├── payment-session.ts      hạn phiên thanh toán 5 phút
+│   │   │   └── gateways/               momo.ts, vnpay.ts: tạo giao dịch và kiểm chữ ký cổng sandbox
+│   │   ├── ingredients/                trừ nguyên liệu bằng optimistic locking, API Kho, nhập kho (Task 10)
+│   │   ├── promotions/                 GET /promotions/:code kiểm tra mã giảm giá (Task 10)
+│   │   ├── common/idempotency.ts       kiểm tra header Idempotency-Key
+│   │   └── prisma/                     PrismaService
+│   ├── test/
+│   │   ├── order-flow.e2e-spec.ts      tiêu chí (a), (b), (c) của Task 10, thanh toán, Quầy, Kho, Doanh thu
+│   │   ├── api-public.e2e-spec.ts      API sản phẩm (Task 2), đăng ký/đăng nhập (Task 7), thời gian phản hồi
+│   │   └── fake-gateways.ts            cổng MoMo, VNPay giả dùng khi test
+│   ├── Dockerfile
+│   └── .env.example
+├── frontend/                           Next.js, cổng 3000
+│   ├── public/images/                  ảnh 15 món
+│   ├── src/
+│   │   ├── app/
+│   │   │   ├── page.tsx                Menu (Task 3)
+│   │   │   ├── products/[id]/          Chi tiết món, chọn size và topping (Task 4)
+│   │   │   ├── cart/                   Giỏ hàng (Task 5)
+│   │   │   ├── login/, register/       Đăng nhập, Đăng ký (Task 7)
+│   │   │   ├── checkout/               Thanh toán: mã giảm giá, chọn MoMo hoặc VNPay (Task 8)
+│   │   │   ├── payments/[id]/          chờ kết quả từ cổng; receipt/ là trang biên lai (Task 8)
+│   │   │   ├── orders/                 Lịch sử đơn; [id]/ là màn hình xác nhận đơn (Task 9)
+│   │   │   ├── admin/orders/           Quầy của nhân viên
+│   │   │   ├── admin/ingredients/      Kho
+│   │   │   ├── admin/revenue/          Doanh thu
+│   │   │   └── not-found.tsx, error.tsx  trang 404, trang lỗi
+│   │   ├── components/                 Header (badge giỏ hàng), AuthForm, PaymentForm, ui.tsx
+│   │   ├── store/                      cart.ts, auth.ts: Zustand lưu giỏ hàng và phiên đăng nhập (Task 5, 7)
+│   │   └── lib/                        api.ts gọi API và báo lỗi tiếng Việt, types.ts, format.ts
+│   ├── Dockerfile
+│   └── .env.example
+├── docs/
+│   ├── api.md                          hợp đồng API
+│   └── scrum/                          Product Backlog, Sprint 1–3, danh sách PR, test case
+├── .github/pull_request_template.md    mẫu Pull Request
+├── .env.example                        khóa VNPay sandbox cho Docker Compose
+└── docker-compose.yml                  db + backend + frontend (Task 9)
 ```
 
 ## Chạy nhanh bằng Docker (1 lệnh)
@@ -73,6 +128,21 @@ npm run dev
 ```
 
 > Với npm 11, nếu thấy cảnh báo "install scripts not yet covered by allowScripts", các gói Prisma đã được cho phép sẵn trong `backend/package.json`, nên không cần làm gì thêm.
+
+## Biến môi trường
+
+Mẫu nằm trong [.env.example](.env.example) (Docker Compose), [backend/.env.example](backend/.env.example) và [frontend/.env.example](frontend/.env.example).
+
+| Biến | Nơi dùng | Ý nghĩa |
+| --- | --- | --- |
+| `DATABASE_URL` | backend | Chuỗi kết nối PostgreSQL |
+| `PORT` | backend | Cổng API, mặc định 4000 |
+| `JWT_SECRET`, `JWT_EXPIRES_IN` | backend | Khóa ký JWT và thời hạn token |
+| `FRONTEND_URL` | backend | Địa chỉ frontend được phép gọi API (CORS), nhiều địa chỉ cách nhau bằng dấu phẩy |
+| `VNPAY_TMN_CODE`, `VNPAY_HASH_SECRET` | backend | Mã website và chuỗi bí mật VNPay sandbox |
+| `MOMO_PARTNER_CODE`, `MOMO_ACCESS_KEY`, `MOMO_SECRET_KEY` | backend | Khóa MoMo test; để trống thì dùng khóa test công khai |
+| `PUBLIC_API_URL` | backend | Địa chỉ công khai của API để cổng gọi IPN |
+| `NEXT_PUBLIC_API_URL` | frontend | Địa chỉ backend; được nhúng lúc build, đổi thì phải build lại frontend |
 
 ## Cổng thanh toán sandbox
 
