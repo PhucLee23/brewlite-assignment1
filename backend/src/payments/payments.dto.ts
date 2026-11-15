@@ -1,9 +1,11 @@
 import { PaymentProvider } from '@prisma/client';
-import { IsEnum, IsIn, IsInt, IsObject, IsOptional, IsString, Matches, Min } from 'class-validator';
+import { IsEnum, IsIn, IsInt, IsObject, IsOptional, IsString, Matches, Max, Min } from 'class-validator';
+import { MAX_ID } from '../common/parse-id.pipe';
 
 export class CreatePaymentDto {
   @IsInt()
   @Min(1)
+  @Max(MAX_ID, { message: 'Mã đơn không hợp lệ' })
   orderId!: number;
 
   @IsEnum(PaymentProvider, { message: 'Cổng thanh toán phải là MOMO hoặc VNPAY' })

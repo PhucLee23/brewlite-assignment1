@@ -22,7 +22,8 @@ services:
     environment:
       PORT: 4000
       DATABASE_URL: postgresql://brewlite:brewlite@db:5432/brewlite?schema=public
-      JWT_SECRET: ${JWT_SECRET:-brewlite-docker-dev-secret-change-me}
+      # Để trống thì backend tự tạo khóa ngẫu nhiên mỗi lần khởi động; đặt trong .env để giữ phiên đăng nhập
+      JWT_SECRET: ${JWT_SECRET:-}
       JWT_EXPIRES_IN: 1d
       # Mở bằng điện thoại: thêm địa chỉ IP của laptop, ví dụ http://localhost:3000,http://192.168.137.1:3000
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}

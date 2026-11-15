@@ -3,7 +3,7 @@ import { JwtService } from '@nestjs/jwt';
 import { User } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 import { isUniqueViolation, PrismaService } from '../prisma/prisma.service';
-import { LoginDto, RegisterDto } from './auth.dto';
+import { LoginDto, PASSWORD_MAX_BYTES, RegisterDto } from './auth.dto';
 import { JwtPayload } from './auth.types';
 
 const BCRYPT_ROUNDS = 10;
@@ -30,7 +30,9 @@ export class AuthService {
 
   async login(dto: LoginDto) {
     const user = await this.prisma.user.findUnique({ where: { email: dto.email.trim().toLowerCase() } });
-    if (!user || !(await bcrypt.compare(dto.password, user.passwordHash))) {
+    // Mật khẩu dài hơn 72 byte không thể là mật khẩu đã đăng ký (bcrypt sẽ bỏ phần thừa nên phải chặn trước)
+    const tooLong = Buffer.byteLength(dto.password, 'utf8') > PASSWORD_MAX_BYTES;
+    if (!user || tooLong || !(await bcrypt.compare(dto.password, user.passwordHash))) {
       throw new UnauthorizedException('Email hoặc mật khẩu không đúng');
     }
     return this.issueToken(user);
