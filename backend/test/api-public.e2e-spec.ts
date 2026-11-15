@@ -82,6 +82,14 @@ describe('BrewLite – API sản phẩm, đăng ký/đăng nhập và thời gia
       await api().get('/products/999999').expect(404);
       await api().get('/products/abc').expect(400);
     });
+
+    it('id vượt phạm vi số nguyên của CSDL trả 400 thay vì lỗi 500', async () => {
+      await api().get('/products/2147483648').expect(400);
+      await api().get('/products/-2147483649').expect(400);
+      await api().get('/products/1.5').expect(400);
+      await api().get('/products/2147483647').expect(404);
+      await api().get('/products/-1').expect(404);
+    });
   });
 
   describe('Task 7 – Đăng ký / Đăng nhập', () => {

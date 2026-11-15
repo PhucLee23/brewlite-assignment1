@@ -1,7 +1,8 @@
-import { Body, Controller, Get, HttpCode, Param, ParseIntPipe, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, Post, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard, Roles, RolesGuard } from '../auth/guards';
 import { RestockDto } from './ingredients.dto';
 import { IngredientsService } from './ingredients.service';
+import { ParseIdPipe } from '../common/parse-id.pipe';
 
 @Controller('ingredients')
 export class IngredientsController {
@@ -20,7 +21,7 @@ export class IngredientsController {
   @HttpCode(200)
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('STAFF')
-  restock(@Param('id', ParseIntPipe) id: number, @Body() dto: RestockDto) {
+  restock(@Param('id', ParseIdPipe) id: number, @Body() dto: RestockDto) {
     return this.ingredients.restock(id, dto.amount);
   }
 }

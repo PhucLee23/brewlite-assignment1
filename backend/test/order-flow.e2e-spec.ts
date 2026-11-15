@@ -146,6 +146,21 @@ describe('BrewLite – luồng đặt hàng và nghiệp vụ Task 10 (e2e)', ()
         .expect(400);
     });
 
+    it('id đơn, món, topping, nguyên liệu vượt phạm vi số nguyên của CSDL trả 400 thay vì lỗi 500', async () => {
+      const big = 2147483648;
+      const server = app.getHttpServer();
+      await request(server).get(`/orders/${big}`).set(auth()).expect(400);
+      await request(server).post(`/orders/${big}/cancel`).set(auth()).expect(400);
+      await request(server).patch(`/orders/${big}/status`).set(auth(staffToken)).send({ status: 'CANCELLED' }).expect(400);
+      await request(server).post(`/ingredients/${big}/restock`).set(auth(staffToken)).send({ amount: 1 }).expect(400);
+      await request(server).post('/orders').set(auth()).send({ items: [{ productId: big, size: 'S', qty: 1 }] }).expect(400);
+      await request(server)
+        .post('/orders')
+        .set(auth())
+        .send({ items: [{ productId: 1, size: 'S', qty: 1, toppingIds: [big] }] })
+        .expect(400);
+    });
+
     it('id giao dịch, mã đơn khi thanh toán vượt phạm vi số nguyên trả 400 thay vì lỗi 500', async () => {
       const big = 2147483648;
       const server = app.getHttpServer();

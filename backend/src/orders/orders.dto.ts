@@ -14,10 +14,12 @@ import {
   Min,
   ValidateNested,
 } from 'class-validator';
+import { MAX_ID } from '../common/parse-id.pipe';
 
 export class OrderItemDto {
   @IsInt()
   @Min(1)
+  @Max(MAX_ID, { message: 'Mã món không hợp lệ' })
   productId!: number;
 
   @IsEnum(Size, { message: 'Size phải là S, M hoặc L' })
@@ -27,6 +29,7 @@ export class OrderItemDto {
   @IsArray()
   @ArrayMaxSize(5)
   @IsInt({ each: true })
+  @Max(MAX_ID, { each: true, message: 'Mã topping không hợp lệ' })
   toppingIds: number[] = [];
 
   @IsInt()
