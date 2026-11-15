@@ -171,7 +171,7 @@ Mẫu nằm trong [.env.example](.env.example) (Docker Compose), [backend/.env.e
 | --- | --- | --- |
 | `DATABASE_URL` | backend | Chuỗi kết nối PostgreSQL |
 | `PORT` | backend | Cổng API, mặc định 4000 |
-| `JWT_SECRET`, `JWT_EXPIRES_IN` | backend | Khóa ký JWT và thời hạn token |
+| `JWT_SECRET`, `JWT_EXPIRES_IN` | backend | Khóa ký JWT và thời hạn token. Không có giá trị mặc định: để trống thì backend tự tạo khóa ngẫu nhiên mỗi lần khởi động |
 | `FRONTEND_URL` | backend | Địa chỉ frontend được phép gọi API (CORS), nhiều địa chỉ cách nhau bằng dấu phẩy |
 | `VNPAY_TMN_CODE`, `VNPAY_HASH_SECRET` | backend | Mã website và chuỗi bí mật VNPay sandbox |
 | `MOMO_PARTNER_CODE`, `MOMO_ACCESS_KEY`, `MOMO_SECRET_KEY` | backend | Khóa MoMo test; để trống thì dùng khóa test công khai |
