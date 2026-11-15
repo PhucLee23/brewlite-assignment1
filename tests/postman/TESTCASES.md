@@ -11,7 +11,7 @@ Bộ test Postman chia theo 10 task của đề. Request trong mỗi task lấy 
 
 ### Cách 1: chạy tự động bằng script (nên dùng)
 
-Lệnh dùng PowerShell trong VS Code, bắt đầu từ thư mục dự án `d:\brewlite-assignment1`.
+Lệnh dùng PowerShell trong VS Code, bắt đầu từ thư mục gốc của repo.
 
 **Bước 1. Bật toàn bộ hệ thống bằng Docker.** Backend tự chạy migration và nạp dữ liệu mẫu khi khởi động.
 
@@ -24,7 +24,7 @@ File `.env` cạnh `docker-compose.yml` phải có `VNPAY_TMN_CODE` và `VNPAY_H
 **Bước 2. Chạy toàn bộ test** (lần đầu cần `npm install` để cài Newman):
 
 ```powershell
-cd report
+cd tests/postman
 npm install
 node run-postman-tests.mjs
 ```
@@ -52,13 +52,13 @@ Backend chạy ở cổng khác thì đặt biến `BASE_URL`, ví dụ `$env:BA
 Luôn chạy kèm folder `0. Chuẩn bị – Đăng nhập` để có token:
 
 ```powershell
-cd report
+cd tests/postman
 npx newman run <tên file collection> --folder "0. Chuẩn bị – Đăng nhập" --folder "<tên folder>"
 ```
 
 ### Cách 3: chạy trong Postman (app, bản web hoặc extension Postman trong VS Code)
 
-1. **Import** → chọn file collection trong `report`.
+1. **Import** → chọn file collection trong `tests/postman`.
 2. Bản web: bật **Desktop Agent** (góc dưới bên phải) để Postman gọi được `localhost`.
 3. Chạy folder **0. Chuẩn bị** trước, rồi mở từng request bấm **Send** và xem tab **Test Results**; hoặc bấm `...` cạnh tên folder → **Run**.
 4. Trước folder luồng Quầy, mở **Console** (góc dưới) để lấy mã 2 đơn in ở request tạo đơn cuối cùng, rồi đánh dấu PAID:

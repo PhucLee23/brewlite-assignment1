@@ -267,11 +267,11 @@ Các nhóm test khác:
 
 ### Bộ test Postman theo 10 task
 
-Bộ test API chia theo task của đề, nằm trong [report/](report/): collection Postman, script chạy tự động và mô tả từng test case ở [report/TESTCASES.md](report/TESTCASES.md).
+Bộ test API chia theo task của đề, nằm trong [tests/postman/](tests/postman/): collection Postman, script chạy tự động và mô tả từng test case ở [tests/postman/TESTCASES.md](tests/postman/TESTCASES.md).
 
 ```bash
 docker compose up -d --build     # cần khóa VNPay sandbox trong .env
-cd report
+cd tests/postman
 npm install
 node run-postman-tests.mjs
 ```
