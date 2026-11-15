@@ -106,6 +106,31 @@ describe('BrewLite – API sản phẩm, đăng ký/đăng nhập và thời gia
       await register(`ten-${uniq()}@test.vn`, 'matkhau123', 'A').expect(400);
     });
 
+    it('họ tên được bỏ khoảng trắng hai đầu trước khi kiểm tra: toàn dấu cách hoặc " A " trả 400', async () => {
+      await register(`trang-${uniq()}@test.vn`, 'matkhau123', '     ').expect(400);
+      await register(`motkytu-${uniq()}@test.vn`, 'matkhau123', ' A ').expect(400);
+
+      const res = await register(`cachdau-${uniq()}@test.vn`, 'matkhau123', '  Nguyễn Văn A  ').expect(201);
+      expect(res.body.user.fullName).toBe('Nguyễn Văn A');
+    });
+
+    it('mật khẩu giới hạn 72 byte vì bcrypt bỏ phần sau: chữ có dấu chiếm 3 byte', async () => {
+      // 24 chữ "ệ" đã đủ 72 byte, thêm ký tự nữa là vượt
+      await register(`dau-${uniq()}@test.vn`, 'ệ'.repeat(24) + 'A').expect(400);
+      await register(`dau-${uniq()}@test.vn`, 'ệ'.repeat(24)).expect(201);
+      await register(`khongdau-${uniq()}@test.vn`, 'a'.repeat(72)).expect(201);
+      await register(`khongdau-${uniq()}@test.vn`, 'a'.repeat(73)).expect(400);
+    });
+
+    it('đăng nhập bằng mật khẩu dài hơn 72 byte bị từ chối, kể cả khi 72 byte đầu trùng mật khẩu thật', async () => {
+      const email = `dai-${uniq()}@test.vn`;
+      const password = 'ệ'.repeat(24);
+      await register(email, password).expect(201);
+
+      await api().post('/auth/login').send({ email, password }).expect(200);
+      await api().post('/auth/login').send({ email, password: password + 'khac' }).expect(401);
+    });
+
     it('đăng nhập đúng trả JWT, dùng được cho GET /auth/me', async () => {
       const email = `dangnhap-${uniq()}@test.vn`;
       await register(email).expect(201);
