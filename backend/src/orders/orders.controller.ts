@@ -1,9 +1,10 @@
-import { Body, Controller, Get, Headers, HttpCode, Param, ParseIntPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Headers, HttpCode, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { AuthUser } from '../auth/auth.types';
 import { CurrentUser, JwtAuthGuard, Roles, RolesGuard } from '../auth/guards';
 import { parseIdempotencyKey } from '../common/idempotency';
 import { CreateOrderDto, ListCounterOrdersQueryDto, UpdateOrderStatusDto } from './orders.dto';
 import { OrdersService } from './orders.service';
+import { ParseIdPipe } from '../common/parse-id.pipe';
 
 @Controller('orders')
 @UseGuards(JwtAuthGuard)
@@ -33,20 +34,20 @@ export class OrdersController {
   }
 
   @Get(':id')
-  findMine(@CurrentUser() user: AuthUser, @Param('id', ParseIntPipe) id: number) {
+  findMine(@CurrentUser() user: AuthUser, @Param('id', ParseIdPipe) id: number) {
     return this.orders.findMine(user.id, id);
   }
 
   @Post(':id/cancel')
   @HttpCode(200)
-  cancel(@CurrentUser() user: AuthUser, @Param('id', ParseIntPipe) id: number) {
+  cancel(@CurrentUser() user: AuthUser, @Param('id', ParseIdPipe) id: number) {
     return this.orders.cancel(user.id, id);
   }
 
   @Patch(':id/status')
   @UseGuards(RolesGuard)
   @Roles('STAFF')
-  changeStatus(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateOrderStatusDto) {
+  changeStatus(@Param('id', ParseIdPipe) id: number, @Body() dto: UpdateOrderStatusDto) {
     return this.orders.changeStatus(id, dto.status);
   }
 }

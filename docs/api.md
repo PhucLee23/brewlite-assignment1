@@ -1,6 +1,6 @@
 # Hợp đồng API BrewLite
 
-Base URL: `http://localhost:4000`. Request/response dạng JSON. Lỗi trả về `{ "statusCode", "message", "error" }`, trong đó `message` là chuỗi hoặc mảng chuỗi (lỗi validate).
+Base URL: `http://localhost:4000`. Request/response dạng JSON. Lỗi trả về `{ "statusCode", "message", "error" }`, trong đó `message` là chuỗi hoặc mảng chuỗi (lỗi validate). Mọi `:id` trên đường dẫn và các mã `productId`, `toppingIds`, `orderId` phải là số nguyên không vượt quá 2147483647 (kiểu INT4 của PostgreSQL), sai → 400.
 
 Route có 🔒 cần header `Authorization: Bearer <accessToken>`.
 
