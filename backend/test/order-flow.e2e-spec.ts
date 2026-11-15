@@ -145,6 +145,20 @@ describe('BrewLite – luồng đặt hàng và nghiệp vụ Task 10 (e2e)', ()
         .send({ items: [{ productId: 1, size: 'XL', qty: 0 }] })
         .expect(400);
     });
+
+    it('id giao dịch, mã đơn khi thanh toán vượt phạm vi số nguyên trả 400 thay vì lỗi 500', async () => {
+      const big = 2147483648;
+      const server = app.getHttpServer();
+      await request(server).get(`/payments/${big}`).set(auth()).expect(400);
+      await request(server).get(`/payments/${big}/receipt`).set(auth()).expect(400);
+      await request(server).post(`/payments/${big}/return`).set(auth()).send({ params: {} }).expect(400);
+      await request(server)
+        .post('/payments')
+        .set(auth())
+        .set('Idempotency-Key', `key-${uniq()}`)
+        .send({ orderId: big, provider: 'VNPAY' })
+        .expect(400);
+    });
   });
 
   describe('Tạo đơn, khuyến mãi và lịch sử', () => {

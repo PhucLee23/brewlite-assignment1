@@ -1,9 +1,10 @@
-import { Body, Controller, Get, Headers, HttpCode, Ip, Param, ParseIntPipe, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Headers, HttpCode, Ip, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { AuthUser } from '../auth/auth.types';
 import { CurrentUser, JwtAuthGuard, Roles, RolesGuard } from '../auth/guards';
 import { parseIdempotencyKey } from '../common/idempotency';
 import { ConfirmReturnDto, CreatePaymentDto, ListPaymentsQueryDto } from './payments.dto';
 import { PaymentsService } from './payments.service';
+import { ParseIdPipe } from '../common/parse-id.pipe';
 
 @Controller('payments')
 export class PaymentsController {
@@ -44,7 +45,7 @@ export class PaymentsController {
 
   @Get(':id')
   @UseGuards(JwtAuthGuard)
-  findMine(@CurrentUser() user: AuthUser, @Param('id', ParseIntPipe) id: number) {
+  findMine(@CurrentUser() user: AuthUser, @Param('id', ParseIdPipe) id: number) {
     return this.payments.findMine(user.id, id);
   }
 
@@ -52,14 +53,14 @@ export class PaymentsController {
   @Post(':id/return')
   @HttpCode(200)
   @UseGuards(JwtAuthGuard)
-  confirmReturn(@CurrentUser() user: AuthUser, @Param('id', ParseIntPipe) id: number, @Body() dto: ConfirmReturnDto) {
+  confirmReturn(@CurrentUser() user: AuthUser, @Param('id', ParseIdPipe) id: number, @Body() dto: ConfirmReturnDto) {
     return this.payments.confirmReturn(user.id, id, dto.params);
   }
 
   /** Biên lai giao dịch: khách xem của mình, nhân viên xem tất cả. */
   @Get(':id/receipt')
   @UseGuards(JwtAuthGuard)
-  receipt(@CurrentUser() user: AuthUser, @Param('id', ParseIntPipe) id: number) {
+  receipt(@CurrentUser() user: AuthUser, @Param('id', ParseIdPipe) id: number) {
     return this.payments.receipt(user, id);
   }
 }
