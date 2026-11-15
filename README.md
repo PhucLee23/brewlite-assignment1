@@ -265,6 +265,19 @@ Các nhóm test khác:
 | [api-public.e2e-spec.ts](backend/test/api-public.e2e-spec.ts) | API sản phẩm (Task 2), đăng ký/đăng nhập (Task 7), thời gian phản hồi các API chính dưới 500 ms (mục 4.2 của đề) |
 | Unit test [gateways.spec.ts](backend/src/payments/gateways/gateways.spec.ts) | Kiểm tra chữ ký với kết quả thật mà sandbox MoMo đã trả về |
 
+### Bộ test Postman theo 10 task
+
+Bộ test API chia theo task của đề, nằm trong [report/](report/): collection Postman, script chạy tự động và mô tả từng test case ở [report/TESTCASES.md](report/TESTCASES.md).
+
+```bash
+docker compose up -d --build     # cần khóa VNPay sandbox trong .env
+cd report
+npm install
+node run-postman-tests.mjs
+```
+
+Kết quả trên nhánh `main`: **92 request, 196 kiểm tra đạt**.
+
 ## Kịch bản demo end-to-end
 
 1. Mở http://localhost:3000 và xem menu.
